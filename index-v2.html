@@ -152,7 +152,7 @@
 
     .progress-val {
       position: absolute;
-      font-size: 32px;
+      font-size: 30px;
       font-weight: 700;
       color: var(--text-main);
       display: flex;
@@ -343,7 +343,7 @@
                   <circle class="circle-bg" cx="65" cy="65" r="55"></circle>
                   <circle class="circle-fill" cx="65" cy="65" r="55" style="stroke-dashoffset: ${strokeDashoffset}"></circle>
                 </svg>
-                <div class="progress-val">${p.progress}%</div>
+                <div class="progress-val">${p.progress}%<span>progress</span></div>
               </div>
               <div class="metrics-grid">
                 <div class="metric-item"><div class="metric-label">Remaining</div><div class="metric-value">${p.remaining}</div></div>
