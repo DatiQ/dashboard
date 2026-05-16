@@ -31,6 +31,7 @@
       --clr-p1s: #10b981;
       --clr-offline: #334155;
 
+      /* Збільшено насиченість фону до 0.09 (9%) */
       --clr-q2-bg: rgba(0, 210, 255, 0.09);
       --clr-u1-bg: rgba(240, 192, 40, 0.09);
       --clr-p1s-bg: rgba(16, 185, 129, 0.09);
@@ -78,7 +79,7 @@
 
     .card {
       background-color: var(--card-bg);
-      border: 3px solid var(--card-border);
+      border: none; /* ПОВНІСТЮ ВИДАЛЕНО БОРДЕР КАРТКИ */
       border-radius: 16px;
       padding: 24px;
       display: flex;
@@ -87,16 +88,16 @@
       box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
       position: relative;
       overflow: hidden;
-      transition: transform 0.2s, border-color 0.3s, --progress 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: transform 0.2s, background-color 0.3s, --progress 0.8s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
+    /* Легке підсвічування фону неактивних карток при наведенні замість бордера */
     .card:not(.p-printing):hover {
-      border-color: #334155;
+      background-color: #1c202b;
     }
 
-    /* Фоновий прогрес тепер заповнюється зліва направо (to right) */
+    /* Фоновий прогрес зліва направо з новою прозорістю 0.09 */
     .card.p-printing {
-      border-color: var(--printer-clr);
       background-image: linear-gradient(to right, var(--printer-bg-clr) var(--progress, 0%), transparent var(--progress, 0%));
     }
 
