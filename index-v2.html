@@ -79,7 +79,7 @@
       padding: 24px;
       display: flex;
       flex-direction: column;
-      min-height: 290px; /* Фіксуємо висоту для ідеальної сітки */
+      min-height: 290px; 
       box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
       transition: transform 0.2s, border-color 0.2s;
     }
@@ -133,7 +133,6 @@
       box-shadow: 0 0 8px var(--status-clr);
     }
 
-    /* Прогрес-бар (Режим друку) */
     .progress-box {
       display: flex;
       justify-content: center;
@@ -172,7 +171,6 @@
       margin-top: 4px;
     }
 
-    /* Новий блок стилізації для Standby та Offline станів */
     .idle-box {
       display: flex;
       flex-direction: column;
@@ -195,7 +193,6 @@
       color: var(--status-clr);
     }
 
-    /* М'яка технологічна пульсація для режиму очікування */
     .card.p-ready .idle-circle {
       animation: breathe 2.5s infinite ease-in-out;
       box-shadow: 0 0 12px rgba(255, 255, 255, 0.02);
@@ -230,7 +227,6 @@
       letter-spacing: 0.3px;
     }
 
-    /* Метрики друку */
     .metrics-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -260,6 +256,13 @@
       color: var(--text-main);
     }
 
+    /* --- Зміни для ПК (від 961px) --- */
+    @media (min-width: 961px) {
+      body {
+        justify-content: center; /* Ідеальне центрування всієї панелі по вертикалі */
+      }
+    }
+
     @media (max-width: 960px) {
       .dashboard { grid-template-columns: 1fr; gap: 16px; }
       body { padding: 20px 16px; }
@@ -268,6 +271,11 @@
   </style>
 </head>
 <body>
+
+  <header>
+    <h1>3D Printer Pool</h1>
+    <div id="live_time" class="system-time">Updated: --:--:--</div>
+  </header>
 
   <div class="dashboard">
     <div id="card_q2" class="card p-offline">
@@ -307,7 +315,8 @@
 
     setInterval(() => {
       const now = new Date();
-      document.getElementById('live_time').innerText = 'Updated: ' + now.toLocaleTimeString('en-US', { hour12: false });
+      const el = document.getElementById('live_time');
+      if (el) el.innerText = 'Updated: ' + now.toLocaleTimeString('en-US', { hour12: false });
     }, 1000);
 
     mqtt.onConnectionLost = () => { setTimeout(connectMQTT, 2000); };
@@ -349,7 +358,6 @@
                 <div class="metric-item"><div class="metric-label">Layer</div><div class="metric-value">${p.layer}</div></div>
               </div>`;
           } else if (p.online) {
-            // Нова стилізація стану Standby (система готова)
             html = `
               <div class="idle-box">
                 <div class="idle-circle">
@@ -361,7 +369,6 @@
                 <div class="idle-subtitle">Ready to print</div>
               </div>`;
           } else {
-            // Нова стилізація стану Offline (немає зв'язку)
             html = `
               <div class="idle-box">
                 <div class="idle-circle">
