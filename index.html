@@ -31,9 +31,9 @@
       --clr-p1s: #10b981;
       --clr-offline: #334155;
 
-      --clr-q2-bg: rgba(0, 210, 255, 0.11);
-      --clr-u1-bg: rgba(240, 192, 40, 0.11);
-      --clr-p1s-bg: rgba(16, 185, 129, 0.11);
+      --clr-q2-bg: rgba(0, 210, 255, 0.09);
+      --clr-u1-bg: rgba(240, 192, 40, 0.09);
+      --clr-p1s-bg: rgba(16, 185, 129, 0.09);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -60,7 +60,7 @@
 
     .card {
       background-color: var(--card-bg);
-      border: none; /* ПОВНІСТЮ ВИДАЛЕНО БОРДЕР КАРТКИ */
+      border: none;
       border-radius: 10px;
       padding: 24px;
       display: flex;
@@ -72,12 +72,10 @@
       transition: transform 0.2s, background-color 0.3s, --progress 0.8s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    /* Легке підсвічування фону неактивних карток при наведенні замість бордера */
     .card:not(.p-printing):hover {
       background-color: #1c202b;
     }
 
-    /* Фоновий прогрес зліва направо з новою прозорістю 0.09 */
     .card.p-printing {
       background-image: linear-gradient(to right, var(--printer-bg-clr) var(--progress, 0%), transparent var(--progress, 0%));
     }
@@ -104,9 +102,12 @@
     .printer-title {
       font-size: 22px;
       font-weight: 700;
-      color: var(--text-main);
+      color: var(--printer-clr, var(--text-main));
       text-transform: uppercase;
       letter-spacing: 0.5px;
+    }
+    .card.p-offline .printer-title {
+      color: var(--text-muted);
     }
 
     .status-wrapper {
@@ -138,9 +139,10 @@
       align-items: center;
       justify-content: center;
       flex-grow: 1;
-      margin-bottom: 8px;
+      margin-bottom: 15px;
     }
 
+    /* БОРДЕР/ТІНЬ НАВКОЛО ЛІТЕР ПОВНІСТЮ ВИДАЛЕНО */
     .print-percentage {
       font-size: 46px;
       font-weight: 700;
@@ -154,7 +156,7 @@
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.8px;
-      margin-top: 6px;
+      margin-top: 2px;
     }
 
     .idle-box {
