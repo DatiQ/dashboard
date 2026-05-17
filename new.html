@@ -238,7 +238,7 @@
       body { padding: 20px 16px; }
     }
 
-    /* --- Окремі стилі збільшення екрана для Microsoft Surface (+25%) --- */
+    /* --- АДАПТИВНІ СТИЛІ ДЛЯ MICROSOFT SURFACE (+25%) --- */
     body.device-surface {
       padding: 50px 30px;
     }
@@ -293,16 +293,22 @@
   </div>
 
   <script>
-    // Визначення Microsoft Surface
+    // НАДІЙНЕ ВИЗНАЧЕННЯ SURFACE ЧЕРЕЗ ГЕОМЕТРІЮ ТА СПІВВІДНОШЕННЯ СТОРІН ЕКРАНА (3:2)
     document.addEventListener("DOMContentLoaded", function() {
+      // 1. Перевіряємо, чи це Windows-девайс
       const isWindows = /Win/i.test(navigator.platform) || /Windows/i.test(navigator.userAgent);
-      const hasTouch = navigator.maxTouchPoints > 0;
+      
+      // 2. Рахуємо співвідношення сторін матриці екрана (у Surface воно рівно 1.5)
+      const screenRatio = window.screen.width / window.screen.height;
+      const isAspectRatio32 = Math.abs(screenRatio - 1.5) < 0.05;
+      
+      // 3. Перевіряємо щільність пікселів (HiDPI)
       const isHighDPI = window.devicePixelRatio >= 1.5;
-      const isTabletWidth = window.innerWidth >= 900 && window.innerWidth <= 1500;
 
-      if (isWindows && hasTouch && isHighDPI && isTabletWidth) {
+      // Якщо це Windows із екраном 3:2 та високою щільністю пікселів — це 100% Surface
+      if (isWindows && isAspectRatio32 && isHighDPI) {
         document.body.classList.add('device-surface');
-        console.log("[⚙️] Виявлено Microsoft Surface. Адаптовано розміри карток (+25%).");
+        console.log("[⚙️] Геометрія екрана визначена як 3:2 (Microsoft Surface). Більші стилі активовано.");
       }
     });
 
