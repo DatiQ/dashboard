@@ -142,7 +142,6 @@
       margin-bottom: 15px;
     }
 
-    /* БОРДЕР/ТІНЬ НАВКОЛО ЛІТЕР ПОВНІСТЮ ВИДАЛЕНО */
     .print-percentage {
       font-size: 46px;
       font-weight: 700;
@@ -181,7 +180,7 @@
       color: var(--status-clr);
     }
 
-    .card.p-ready .idle-circle {
+    .card.p-ready .idle-circle, .card.p-paused .idle-circle {
       animation: breathe 2.5s infinite ease-in-out;
     }
 
@@ -199,7 +198,7 @@
       letter-spacing: 0.5px;
       margin-bottom: 2px;
     }
-    .card.p-ready .idle-title { color: var(--text-main); }
+    .card.p-ready .idle-title, .card.p-paused .idle-title { color: var(--text-main); }
     .card.p-offline .idle-title { color: var(--text-muted); }
 
     .idle-subtitle {
@@ -237,7 +236,6 @@
     @media (max-width: 960px) {
       .dashboard { grid-template-columns: 1fr; gap: 16px; }
       body { padding: 20px 16px; }
-      header h1 { font-size: 22px; }
     }
   </style>
 </head>
@@ -295,7 +293,7 @@
           card.className = 'card ' + (p.state === 'PRINTING' ? 'p-printing' : (p.state === 'PAUSED' ? 'p-paused' : (p.state === 'READY' ? 'p-ready' : 'p-offline')));
 
           let html = '';
-          if (p.online && p.isPrinting) {
+          if (p.online && p.state === 'PRINTING') {
             let fTime = '--:--';
             if (p.remSec > 0) {
               let d = new Date(Date.now() + p.remSec * 1000);
@@ -317,18 +315,8 @@
           } else {
             card.style.setProperty('--progress', '0%');
 
-            if (p.online) {
-              html = `
-                <div class="idle-box">
-                  <div class="idle-circle">
-                    <svg class="idle-icon" viewBox="0 0 24 24">
-                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                    </svg>
-                  </div>
-                  <div class="idle-title">Standby Mode</div>
-                  <div class="idle-subtitle">Ready to print</div>
-                </div>`;
-            } else {
+            if (!p.online) {
+              // Офлайн / Помилка з'єднання (Знак оклику всередині кола)
               html = `
                 <div class="idle-box">
                   <div class="idle-circle">
@@ -339,13 +327,37 @@
                   <div class="idle-title">No Connection</div>
                   <div class="idle-subtitle">Check power or network</div>
                 </div>`;
+            } else if (p.state === 'PAUSED') {
+              // Стан паузи (Дві вертикальні смужки значка паузи)
+              html = `
+                <div class="idle-box">
+                  <div class="idle-circle">
+                    <svg class="idle-icon" viewBox="0 0 24 24">
+                      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                    </svg>
+                  </div>
+                  <div class="idle-title">Print Paused</div>
+                  <div class="idle-subtitle">Waiting to resume</div>
+                </div>`;
+            } else {
+              // Стан очікування або завершення (Стандартна галочка успіху)
+              html = `
+                <div class="idle-box">
+                  <div class="idle-circle">
+                    <svg class="idle-icon" viewBox="0 0 24 24">
+                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                    </svg>
+                  </div>
+                  <div class="idle-title">Standby Mode</div>
+                  <div class="idle-subtitle">Ready to print</div>
+                </div>`;
             }
           }
           
           document.getElementById('content_' + id).innerHTML = html;
           
           const baseOrder = id === 'q2' ? 1 : (id === 'u1' ? 2 : 3);
-          card.style.order = (p.online && p.isPrinting) ? baseOrder : (baseOrder + 3);
+          card.style.order = (p.online && p.state === 'PRINTING') ? baseOrder : (baseOrder + 3);
         });
       } catch (e) { console.error(e); }
     };
