@@ -55,7 +55,7 @@
       max-width: 1140px;
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 24px;
+      gap: 32px; /* Збільшено на 8px (було 24px) */
     }
 
     .card {
@@ -237,6 +237,31 @@
       .dashboard { grid-template-columns: 1fr; gap: 16px; }
       body { padding: 20px 16px; }
     }
+
+    /* --- АДАПТИВНІ СТИЛІ ДЛЯ MICROSOFT SURFACE (+15%) --- */
+    body.device-surface {
+      padding: 46px 24px;
+    }
+    body.device-surface .dashboard {
+      max-width: 1250px;
+      gap: 36px; /* Збільшено на 8px від базових 15% (було 28px) */
+    }
+    body.device-surface .card {
+      padding: 28px;
+      min-height: 270px;
+      border-radius: 11px;
+    }
+    body.device-surface .printer-title { font-size: 25px; }
+    body.device-surface .status-wrapper { font-size: 16px; padding: 5px 14px; }
+    body.device-surface .print-percentage { font-size: 53px; }
+    body.device-surface .print-label { font-size: 14px; }
+    body.device-surface .idle-circle { width: 80px; height: 80px; margin-bottom: 18px; }
+    body.device-surface .idle-icon { width: 37px; height: 37px; }
+    body.device-surface .idle-title { font-size: 21px; }
+    body.device-surface .idle-subtitle { font-size: 16px; }
+    body.device-surface .metrics-grid { gap: 14px; padding-top: 18px; }
+    body.device-surface .metric-label { font-size: 15px; }
+    body.device-surface .metric-value { font-size: 21px; }
   </style>
 </head>
 <body>
@@ -268,6 +293,19 @@
   </div>
 
   <script>
+    // НАДІЙНЕ ВИЗНАЧЕННЯ SURFACE ЧЕРЕЗ ГЕОМЕТРІЮ ТА СПІВВІДНОШЕННЯ СТОРІН ЕКРАНА (3:2)
+    document.addEventListener("DOMContentLoaded", function() {
+      const isWindows = /Win/i.test(navigator.platform) || /Windows/i.test(navigator.userAgent);
+      const screenRatio = window.screen.width / window.screen.height;
+      const isAspectRatio32 = Math.abs(screenRatio - 1.5) < 0.05;
+      const isHighDPI = window.devicePixelRatio >= 1.5;
+
+      if (isWindows && isAspectRatio32 && isHighDPI) {
+        document.body.classList.add('device-surface');
+        console.log("[⚙️] Геометрія екрана визначена як 3:2 (Microsoft Surface). Стилі +15% активовано.");
+      }
+    });
+
     const cloudBroker = 'm0722111.ala.eu-central-1.emqxsl.com';
     const cloudPort = 8084; 
     const cloudUser = 'DatiX';   
@@ -316,7 +354,6 @@
             card.style.setProperty('--progress', '0%');
 
             if (!p.online) {
-              // Офлайн / Помилка з'єднання (Знак оклику всередині кола)
               html = `
                 <div class="idle-box">
                   <div class="idle-circle">
@@ -328,7 +365,6 @@
                   <div class="idle-subtitle">Check power or network</div>
                 </div>`;
             } else if (p.state === 'PAUSED') {
-              // Стан паузи (Дві вертикальні смужки значка паузи)
               html = `
                 <div class="idle-box">
                   <div class="idle-circle">
@@ -340,7 +376,6 @@
                   <div class="idle-subtitle">Waiting to resume</div>
                 </div>`;
             } else {
-              // Стан очікування або завершення (Стандартна галочка успіху)
               html = `
                 <div class="idle-box">
                   <div class="idle-circle">
