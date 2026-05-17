@@ -238,30 +238,30 @@
       body { padding: 20px 16px; }
     }
 
-    /* --- АДАПТИВНІ СТИЛІ ДЛЯ MICROSOFT SURFACE (+25%) --- */
+    /* --- АДАПТИВНІ СТИЛІ ДЛЯ MICROSOFT SURFACE (+15%) --- */
     body.device-surface {
-      padding: 50px 30px;
+      padding: 46px 24px;
     }
     body.device-surface .dashboard {
-      max-width: 1380px;
-      gap: 32px;
+      max-width: 1250px;
+      gap: 28px;
     }
     body.device-surface .card {
-      padding: 30px;
-      min-height: 300px;
-      border-radius: 12px;
+      padding: 28px;
+      min-height: 270px;
+      border-radius: 11px;
     }
-    body.device-surface .printer-title { font-size: 28px; }
-    body.device-surface .status-wrapper { font-size: 17px; padding: 6px 16px; }
-    body.device-surface .print-percentage { font-size: 58px; }
-    body.device-surface .print-label { font-size: 15px; }
-    body.device-surface .idle-circle { width: 88px; height: 88px; margin-bottom: 20px; }
-    body.device-surface .idle-icon { width: 40px; height: 40px; }
-    body.device-surface .idle-title { font-size: 22px; }
-    body.device-surface .idle-subtitle { font-size: 17px; }
-    body.device-surface .metrics-grid { gap: 16px; padding-top: 20px; }
-    body.device-surface .metric-label { font-size: 16px; }
-    body.device-surface .metric-value { font-size: 22px; }
+    body.device-surface .printer-title { font-size: 25px; }
+    body.device-surface .status-wrapper { font-size: 16px; padding: 5px 14px; }
+    body.device-surface .print-percentage { font-size: 53px; }
+    body.device-surface .print-label { font-size: 14px; }
+    body.device-surface .idle-circle { width: 80px; height: 80px; margin-bottom: 18px; }
+    body.device-surface .idle-icon { width: 37px; height: 37px; }
+    body.device-surface .idle-title { font-size: 21px; }
+    body.device-surface .idle-subtitle { font-size: 16px; }
+    body.device-surface .metrics-grid { gap: 14px; padding-top: 18px; }
+    body.device-surface .metric-label { font-size: 15px; }
+    body.device-surface .metric-value { font-size: 21px; }
   </style>
 </head>
 <body>
@@ -295,20 +295,14 @@
   <script>
     // НАДІЙНЕ ВИЗНАЧЕННЯ SURFACE ЧЕРЕЗ ГЕОМЕТРІЮ ТА СПІВВІДНОШЕННЯ СТОРІН ЕКРАНА (3:2)
     document.addEventListener("DOMContentLoaded", function() {
-      // 1. Перевіряємо, чи це Windows-девайс
       const isWindows = /Win/i.test(navigator.platform) || /Windows/i.test(navigator.userAgent);
-      
-      // 2. Рахуємо співвідношення сторін матриці екрана (у Surface воно рівно 1.5)
       const screenRatio = window.screen.width / window.screen.height;
       const isAspectRatio32 = Math.abs(screenRatio - 1.5) < 0.05;
-      
-      // 3. Перевіряємо щільність пікселів (HiDPI)
       const isHighDPI = window.devicePixelRatio >= 1.5;
 
-      // Якщо це Windows із екраном 3:2 та високою щільністю пікселів — це 100% Surface
       if (isWindows && isAspectRatio32 && isHighDPI) {
         document.body.classList.add('device-surface');
-        console.log("[⚙️] Геометрія екрана визначена як 3:2 (Microsoft Surface). Більші стилі активовано.");
+        console.log("[⚙️] Геометрія екрана визначена як 3:2 (Microsoft Surface). Стилі +15% активовано.");
       }
     });
 
