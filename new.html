@@ -61,7 +61,7 @@
     .card {
       background-color: var(--card-bg);
       border: none;
-      border-radius: 10px;
+      border-radius: 6px;
       padding: 24px;
       display: flex;
       flex-direction: column;
@@ -69,7 +69,7 @@
       box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
       position: relative;
       overflow: hidden;
-      transition: transform 0.2s, background-color 0.3s, --progress 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: transform 0.2s, background-color 0.3s;
     }
 
     .card:not(.p-printing):hover {
@@ -79,27 +79,26 @@
     .card::before {
       content: "";
       position: absolute;
-      left: 10px;
-      top: 16px;
-      bottom: 16px;
-      width: 6px;
-      border-radius: 3px;
-      background: #222c3a;
+      top: 5px;
+      left: 5px;
+      right: 5px;
+      height: 13px;
+      border-radius: 6px;
+      background: #0e1116;
     }
 
     .card::after {
       content: "";
       position: absolute;
-      left: 10px;
-      top: 16px;
-      bottom: 16px;
-      width: 6px;
-      border-radius: 3px;
-      background: linear-gradient(to top, var(--printer-clr) var(--progress, 0%), transparent var(--progress, 0%));
+      top: 8px;
+      left: 8px;
+      right: 8px;
+      height: 7px;
+      border-radius: 4px;
+      background: color-mix(in srgb, var(--printer-clr) 77%, #080a0f);
+      clip-path: inset(0 calc(100% - var(--progress, 0%)) 0 0 round 4px);
       opacity: 0;
-      transition:
-        --progress 0.8s cubic-bezier(0.4, 0, 0.2, 1),
-        opacity 0.25s ease;
+      transition: opacity 0.25s ease;
     }
 
     .card.p-printing {
@@ -126,6 +125,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      padding-top: 8px;
       margin-bottom: 24px;
     }
 
@@ -135,7 +135,6 @@
       color: var(--printer-clr, var(--text-main));
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      padding-left: 8px;
     }
     .card.p-offline .printer-title {
       color: var(--text-muted);
@@ -285,14 +284,20 @@
     body.device-surface .card {
       padding: 28px;
       min-height: 270px;
-      border-radius: 11px;
+      border-radius: 7px;
     }
     body.device-surface .card::before,
     body.device-surface .card::after {
-      left: 12px;
-      top: 18px;
-      bottom: 18px;
-      width: 7px;
+      top: 5px;
+      left: 5px;
+      right: 5px;
+      height: 14px;
+    }
+    body.device-surface .card::after {
+      top: 8px;
+      left: 8px;
+      right: 8px;
+      height: 8px;
     }
     body.device-surface .printer-title { font-size: 25px; }
     body.device-surface .status-wrapper { font-size: 16px; padding: 5px 14px; }
