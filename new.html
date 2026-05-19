@@ -142,6 +142,7 @@
       font-weight: 700;
       color: #edf2f8;
       line-height: 0.97;
+      padding-left: 10px;
     }
 
     .print-label {
@@ -150,7 +151,8 @@
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.8px;
-      margin-top: 1px;
+      margin-bottom: 0;
+      padding-left: 12px;
     }
 
     .print-body {
@@ -192,7 +194,7 @@
       padding: 1px;
       box-sizing: border-box;
       border-radius: 999px;
-      background: rgba(255, 255, 255, 0.08);
+      background: #0e1116;
     }
 
     .print-progress-fill {
@@ -227,9 +229,13 @@
     .print-percent-panel {
       display: flex;
       flex-direction: column;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
-      padding-left: 8px;
+      gap: 0;
+    }
+
+    .print-percent-panel .print-label {
+      margin-top: -4px;
     }
 
     .idle-box {
