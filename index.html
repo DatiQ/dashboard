@@ -55,7 +55,7 @@
       max-width: 1140px;
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 32px; /* Збільшено на 8px (було 24px) */
+      gap: 32px;
     }
 
     .card {
@@ -244,7 +244,7 @@
     }
     body.device-surface .dashboard {
       max-width: 1250px;
-      gap: 36px; /* Збільшено на 8px від базових 15% (було 28px) */
+      gap: 36px;
     }
     body.device-surface .card {
       padding: 28px;
@@ -277,7 +277,7 @@
 
     <div id="card_u1" class="card p-offline">
       <div class="card-header">
-        <div class="printer-title">SNAPMAKER U1</div>
+        <div class="printer-title">UNIMAKER U1</div>
         <div class="status-wrapper"><div class="status-dot"></div><span id="state_u1">Offline</span></div>
       </div>
       <div id="content_u1"></div>
@@ -293,7 +293,6 @@
   </div>
 
   <script>
-    // НАДІЙНЕ ВИЗНАЧЕННЯ SURFACE ЧЕРЕЗ ГЕОМЕТРІЮ ТА СПІВВІДНОШЕННЯ СТОРІН ЕКРАНА (3:2)
     document.addEventListener("DOMContentLoaded", function() {
       const isWindows = /Win/i.test(navigator.platform) || /Windows/i.test(navigator.userAgent);
       const screenRatio = window.screen.width / window.screen.height;
@@ -327,7 +326,13 @@
           const stateEl = document.getElementById('state_' + id);
           if (!card || !stateEl) return;
 
-          stateEl.innerText = p.state;
+          // ПІДМІНА НА ВЕЛИКІ ЛІТЕРИ ВЖЕ НА СТОРІНІ БРАУЗЕРА
+          if (p.state === 'READY') {
+            stateEl.innerText = 'STANDBY';
+          } else {
+            stateEl.innerText = p.state;
+          }
+
           card.className = 'card ' + (p.state === 'PRINTING' ? 'p-printing' : (p.state === 'PAUSED' ? 'p-paused' : (p.state === 'READY' ? 'p-ready' : 'p-offline')));
 
           let html = '';
