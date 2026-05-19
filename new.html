@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>3D Printer Pool Dashboard</title>
+  <title>DASHBOARD</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='9' height='9' fill='%2300d2ff' /%3E%3Crect x='13' y='2' width='9' height='9' fill='%234ade80' /%3E%3Crect x='2' y='13' width='9' height='9' fill='%23f0c028' /%3E%3Crect x='13' y='13' width='9' height='9' fill='%23ff3333' /%3E%3C/svg%3E">
   
@@ -55,7 +55,7 @@
       max-width: 1140px;
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 32px; /* Збільшено на 8px (було 24px) */
+      gap: 32px;
     }
 
     .card {
@@ -77,7 +77,7 @@
     }
 
     .card.p-printing {
-      background-image: linear-gradient(to right, var(--printer-bg-clr) var(--progress, 0%), transparent var(--progress, 0%));
+      background-image: linear-gradient(to top, var(--printer-bg-clr) var(--progress, 0%), transparent var(--progress, 0%));
     }
 
     #card_q2 { --printer-clr: var(--clr-q2); --printer-bg-clr: var(--clr-q2-bg); }
@@ -212,13 +212,22 @@
     .metrics-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
+      gap: 0;
       margin-top: auto;
       border-top: 1px solid rgba(255,255,255,0.08);
       padding-top: 16px;
     }
 
-    .metric-item { display: flex; flex-direction: column; }
+    .metric-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 0 12px;
+    }
+    .metric-item + .metric-item {
+      border-left: 1px solid rgba(255,255,255,0.08);
+    }
     .metric-label {
       font-size: 13px;
       color: var(--text-muted);
@@ -244,7 +253,7 @@
     }
     body.device-surface .dashboard {
       max-width: 1250px;
-      gap: 36px; /* Збільшено на 8px від базових 15% (було 28px) */
+      gap: 36px;
     }
     body.device-surface .card {
       padding: 28px;
@@ -259,7 +268,7 @@
     body.device-surface .idle-icon { width: 37px; height: 37px; }
     body.device-surface .idle-title { font-size: 21px; }
     body.device-surface .idle-subtitle { font-size: 16px; }
-    body.device-surface .metrics-grid { gap: 14px; padding-top: 18px; }
+    body.device-surface .metrics-grid { gap: 0; padding-top: 18px; }
     body.device-surface .metric-label { font-size: 15px; }
     body.device-surface .metric-value { font-size: 21px; }
   </style>
@@ -293,7 +302,6 @@
   </div>
 
   <script>
-    // НАДІЙНЕ ВИЗНАЧЕННЯ SURFACE ЧЕРЕЗ ГЕОМЕТРІЮ ТА СПІВВІДНОШЕННЯ СТОРІН ЕКРАНА (3:2)
     document.addEventListener("DOMContentLoaded", function() {
       const isWindows = /Win/i.test(navigator.platform) || /Windows/i.test(navigator.userAgent);
       const screenRatio = window.screen.width / window.screen.height;
@@ -327,7 +335,13 @@
           const stateEl = document.getElementById('state_' + id);
           if (!card || !stateEl) return;
 
-          stateEl.innerText = p.state;
+          // ПІДМІНА НА ВЕЛИКІ ЛІТЕРИ ВЖЕ НА СТОРІНІ БРАУЗЕРА
+          if (p.state === 'READY') {
+            stateEl.innerText = 'STANDBY';
+          } else {
+            stateEl.innerText = p.state;
+          }
+
           card.className = 'card ' + (p.state === 'PRINTING' ? 'p-printing' : (p.state === 'PAUSED' ? 'p-paused' : (p.state === 'READY' ? 'p-ready' : 'p-offline')));
 
           let html = '';
