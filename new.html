@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>DASHBOARD</title>
+  <title>DASHBOARD CONTOUR</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='9' height='9' fill='%230ea5e9' /%3E%3Crect x='13' y='2' width='9' height='9' fill='%2322c55e' /%3E%3Crect x='2' y='13' width='9' height='9' fill='%23eab308' /%3E%3Crect x='13' y='13' width='9' height='9' fill='%2364748b' /%3E%3C/svg%3E">
   
@@ -31,9 +31,9 @@
       --clr-p1s: #10b981;
       --clr-offline: #334155;
 
-      --clr-q2-bg: rgba(0, 210, 255, 0.09);
-      --clr-u1-bg: rgba(240, 192, 40, 0.09);
-      --clr-p1s-bg: rgba(16, 185, 129, 0.09);
+      --clr-q2-bg: rgba(0, 210, 255, 0.095);
+      --clr-u1-bg: rgba(240, 192, 40, 0.095);
+      --clr-p1s-bg: rgba(16, 185, 129, 0.095);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -61,52 +61,23 @@
     .card {
       background-color: var(--card-bg);
       border: none;
-      border-radius: 6px;
-      padding: 24px;
+      border-radius: 10px;
+      padding: 18px 24px 24px;
       display: flex;
       flex-direction: column;
       min-height: 240px;
       box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
       position: relative;
       overflow: hidden;
-      transition: transform 0.2s, background-color 0.3s;
+      transition: transform 0.2s, background-color 0.3s, --progress 0.8s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .card:not(.p-printing):hover {
       background-color: #1c202b;
     }
 
-    .card::before {
-      content: "";
-      position: absolute;
-      top: 5px;
-      left: 5px;
-      right: 5px;
-      height: 13px;
-      border-radius: 6px;
-      background: #0e1116;
-    }
-
-    .card::after {
-      content: "";
-      position: absolute;
-      top: 8px;
-      left: 8px;
-      right: 8px;
-      height: 7px;
-      border-radius: 4px;
-      background: color-mix(in srgb, var(--printer-clr) 77%, #080a0f);
-      clip-path: inset(0 calc(100% - var(--progress, 0%)) 0 0 round 4px);
-      opacity: 0;
-      transition: opacity 0.25s ease;
-    }
-
     .card.p-printing {
-      background-image: none;
-    }
-
-    .card.p-printing::after {
-      opacity: 1;
+      background-image: linear-gradient(to top, var(--printer-bg-clr) var(--progress, 0%), transparent var(--progress, 0%));
     }
 
     #card_q2 { --printer-clr: var(--clr-q2); --printer-bg-clr: var(--clr-q2-bg); }
@@ -121,11 +92,16 @@
       z-index: 1;
     }
 
+    #content_q2, #content_u1, #content_p1s {
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+    }
+
     .card-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-top: 8px;
       margin-bottom: 24px;
     }
 
@@ -159,17 +135,8 @@
       display: none;
     }
 
-    .print-text-box {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      flex-grow: 1;
-      margin-bottom: 15px;
-    }
-
     .print-percentage {
-      font-size: 46px;
+      font-size: 80px;
       font-weight: 700;
       color: #edf2f8;
       line-height: 1;
@@ -181,7 +148,40 @@
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.8px;
-      margin-top: 0;
+      margin-top: 2px;
+    }
+
+    .print-layout {
+      display: grid;
+      grid-template-columns: max-content minmax(0, 1fr);
+      column-gap: 28px;
+      align-items: stretch;
+      flex-grow: 1;
+      margin-top: 4px;
+    }
+
+    .print-details {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 11px;
+      padding-right: 0;
+    }
+
+    .print-detail-row {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0;
+    }
+
+    .print-percent-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-left: 1px solid rgba(255,255,255,0.08);
+      padding-left: 28px;
     }
 
     .idle-box {
@@ -235,25 +235,6 @@
       letter-spacing: 0.3px;
     }
 
-    .metrics-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 0;
-      margin-top: auto;
-      border-top: 1px solid rgba(255,255,255,0.08);
-      padding-top: 16px;
-    }
-
-    .metric-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      padding: 0 12px;
-    }
-    .metric-item + .metric-item {
-      border-left: 1px solid rgba(255,255,255,0.08);
-    }
     .metric-label {
       font-size: 13px;
       color: var(--text-muted);
@@ -282,32 +263,21 @@
       gap: 36px;
     }
     body.device-surface .card {
-      padding: 28px;
+      padding: 22px 28px 28px;
       min-height: 270px;
-      border-radius: 7px;
-    }
-    body.device-surface .card::before,
-    body.device-surface .card::after {
-      top: 5px;
-      left: 5px;
-      right: 5px;
-      height: 14px;
-    }
-    body.device-surface .card::after {
-      top: 8px;
-      left: 8px;
-      right: 8px;
-      height: 8px;
+      border-radius: 11px;
     }
     body.device-surface .printer-title { font-size: 25px; }
     body.device-surface .status-wrapper { font-size: 16px; padding: 5px 14px; }
-    body.device-surface .print-percentage { font-size: 53px; }
+    body.device-surface .print-percentage { font-size: 92px; }
     body.device-surface .print-label { font-size: 14px; }
+    body.device-surface .print-layout { grid-template-columns: max-content minmax(0, 1fr); }
+    body.device-surface .print-details { gap: 13px; padding-right: 0; }
+    body.device-surface .print-percent-panel { padding-left: 25px; }
     body.device-surface .idle-circle { width: 80px; height: 80px; margin-bottom: 18px; }
     body.device-surface .idle-icon { width: 37px; height: 37px; }
     body.device-surface .idle-title { font-size: 21px; }
     body.device-surface .idle-subtitle { font-size: 16px; }
-    body.device-surface .metrics-grid { gap: 0; padding-top: 18px; }
     body.device-surface .metric-label { font-size: 15px; }
     body.device-surface .metric-value { font-size: 21px; }
   </style>
@@ -392,20 +362,20 @@
             }
             
             card.style.setProperty('--progress', p.progress + '%');
-
             html = `
-              <div class="print-text-box">
-                <div class="print-percentage">${p.progress}%</div>
-                <div class="print-label">Progress</div>
-              </div>
-              <div class="metrics-grid">
-                <div class="metric-item"><div class="metric-label">Remaining</div><div class="metric-value">${p.remaining}</div></div>
-                <div class="metric-item"><div class="metric-label">Estimated</div><div class="metric-value">${fTime}</div></div>
-                <div class="metric-item"><div class="metric-label">Layer</div><div class="metric-value">${p.layer}</div></div>
+              <div class="print-layout">
+                <div class="print-details">
+                  <div class="print-detail-row"><div class="metric-label">Remaining</div><div class="metric-value">${p.remaining}</div></div>
+                  <div class="print-detail-row"><div class="metric-label">Estimated</div><div class="metric-value">${fTime}</div></div>
+                  <div class="print-detail-row"><div class="metric-label">Layer</div><div class="metric-value">${p.layer}</div></div>
+                </div>
+                <div class="print-percent-panel">
+                  <div class="print-percentage">${p.progress}%</div>
+                  <div class="print-label">Progress</div>
+                </div>
               </div>`;
           } else {
             card.style.setProperty('--progress', '0%');
-
             if (!p.online) {
               html = `
                 <div class="idle-box">
