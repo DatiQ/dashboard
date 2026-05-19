@@ -161,7 +161,7 @@
       column-gap: 20px;
       flex-grow: 1;
       margin-top: 4px;
-      align-items: start;
+      align-items: stretch;
     }
 
     .print-left-block {
@@ -230,14 +230,50 @@
       display: flex;
       flex-direction: column;
       align-items: flex-start;
-      justify-content: flex-start;
-      align-self: start;
+      justify-content: space-between;
+      align-self: stretch;
+      min-height: 100%;
       gap: 0;
       margin-top: -9px;
     }
 
+    .print-percent-top {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
     .print-percent-panel .print-label {
       margin-top: -4px;
+    }
+
+    .print-temps {
+      display: flex;
+      gap: 18px;
+      margin-top: auto;
+      padding-left: 12px;
+    }
+
+    .print-temp-item {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0;
+    }
+
+    .print-temp-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .print-temp-value {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-main);
+      line-height: 1.15;
     }
 
     .idle-box {
@@ -336,6 +372,8 @@
     body.device-surface .idle-subtitle { font-size: 16px; }
     body.device-surface .metric-label { font-size: 15px; }
     body.device-surface .metric-value { font-size: 21px; }
+    body.device-surface .print-temp-value { font-size: 21px; }
+    body.device-surface .print-temp-label { font-size: 14px; }
   </style>
 </head>
 <body>
@@ -390,6 +428,12 @@
 
     mqtt.onConnectionLost = () => { setTimeout(connectMQTT, 2000); };
 
+    function formatTemp(value) {
+      const temp = Number(value);
+      if (!Number.isFinite(temp) || temp <= 0) return '--';
+      return Math.round(temp) + '°';
+    }
+
     mqtt.onMessageArrived = (message) => {
       try {
         const data = JSON.parse(message.payloadString);
@@ -437,8 +481,20 @@
                   </div>
                 </div>
                 <div class="print-percent-panel">
-                  <div class="print-percentage">${progress}%</div>
-                  <div class="print-label">Progress</div>
+                  <div class="print-percent-top">
+                    <div class="print-percentage">${progress}%</div>
+                    <div class="print-label">Progress</div>
+                  </div>
+                  <div class="print-temps">
+                    <div class="print-temp-item">
+                      <div class="print-temp-label">Nozzle</div>
+                      <div class="print-temp-value">${formatTemp(p.nozzle)}</div>
+                    </div>
+                    <div class="print-temp-item">
+                      <div class="print-temp-label">Bed</div>
+                      <div class="print-temp-value">${formatTemp(p.bed)}</div>
+                    </div>
+                  </div>
                 </div>
               </div>`;
           } else {
