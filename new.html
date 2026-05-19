@@ -142,7 +142,6 @@
       font-weight: 700;
       color: var(--text-main);
       line-height: 0.97;
-      padding-left: 7px;
     }
 
     .print-label {
@@ -152,7 +151,6 @@
       text-transform: uppercase;
       letter-spacing: 0.8px;
       margin-bottom: 0;
-      padding-left: 9px;
     }
 
     .print-body {
@@ -236,6 +234,8 @@
       min-height: 100%;
       gap: 0;
       margin-top: -9px;
+      padding-left: 9px;
+      box-sizing: border-box;
     }
 
     .print-percent-top {
@@ -251,7 +251,6 @@
     .print-percent-bottom {
       margin-top: auto;
       width: 100%;
-      padding-left: 9px;
       box-sizing: border-box;
     }
 
@@ -373,7 +372,8 @@
     }
     body.device-surface .printer-title { font-size: 25px; }
     body.device-surface .status-wrapper { font-size: 16px; padding: 5px 14px; }
-    body.device-surface .print-percentage { font-size: 104px; padding-left: 11px; }
+    body.device-surface .print-percent-panel { padding-left: 11px; }
+    body.device-surface .print-percentage { font-size: 104px; }
     body.device-surface .print-label { font-size: 14px; }
     body.device-surface .print-body { grid-template-columns: max-content minmax(0, 1fr); }
     body.device-surface .print-left-stack { gap: 13px; }
