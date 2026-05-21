@@ -130,7 +130,7 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .card.p-offline .printer-title { color: var(--text-muted); }
+    .card:not(.p-layout-print).p-offline .printer-title { color: var(--text-muted); }
 
     .status-wrapper {
       display: flex;
@@ -152,27 +152,24 @@
 
     .print-body {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 4px 95px;
+      grid-template-columns: minmax(0, 1fr) 95px;
       align-items: stretch;
       gap: 10px 0;
       flex-grow: 1;
       min-height: 108px;
       --gap-pct-bar: 16px;
       --gap-bar-params: 0;
+      --print-rail-w: 4px;
     }
 
     .print-pct {
       grid-column: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      position: relative;
       align-self: stretch;
       min-width: 0;
-      position: relative;
+      min-height: 0;
       overflow: hidden;
-      padding: 22px var(--gap-pct-bar) 12px 10px;
-      background: var(--panel-bg);
-      transition: --progress 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      background: var(--card-bg);
     }
 
     .print-pct::before {
@@ -181,11 +178,27 @@
       left: 0;
       right: 0;
       bottom: 0;
-      height: var(--progress, 0%);
+      height: calc(100% * var(--progress-num, 0) / 100);
+      max-height: 100%;
+      min-height: 3px;
       background: var(--printer-bg-clr);
-      filter: saturate(0.7);
+      filter: saturate(1.1) brightness(1.2);
       z-index: 0;
       transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .print-pct-area {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      height: 100%;
+      min-height: 100%;
+      padding: 23px calc(var(--gap-pct-bar) + var(--print-rail-w)) 17px 10px;
+      box-sizing: border-box;
     }
 
     .print-pct-block {
@@ -195,11 +208,11 @@
       flex-direction: column;
       align-items: center;
       justify-content: space-between;
+      flex: 1;
+      width: 100%;
+      min-height: 0;
       text-align: center;
       gap: 6px;
-      width: 100%;
-      min-height: 100%;
-      padding: 0;
     }
 
     .print-pct-name {
@@ -209,6 +222,7 @@
       text-transform: uppercase;
       letter-spacing: 0.5px;
       line-height: 1.1;
+      margin-top: -3px;
       max-width: 100%;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -226,10 +240,22 @@
     }
 
     .card.p-printing .print-pct-status {
+      margin-top: 12px;
       padding: 7px 10px 4px;
       border-radius: 4px;
       background: var(--panel-bg);
       animation: status-pulse 2s infinite ease-in-out;
+    }
+
+    .card.p-offline.p-layout-print .print-pct-num {
+      font-size: 56px;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+    }
+
+    .card.p-offline.p-layout-print .print-pct-sym {
+      display: none;
     }
 
     .print-pct-mid {
@@ -260,7 +286,7 @@
     }
 
     .print-params {
-      grid-column: 3;
+      grid-column: 2;
       display: flex;
       flex-direction: column;
       justify-content: flex-start;
@@ -271,17 +297,20 @@
       --params-pad-top: 10px;
       --params-pad-right: 10px;
       --params-pad-bottom: 10px;
-      --params-pad-left: 16px;
+      --params-pad-left: 10px;
       padding: var(--params-pad-top) var(--params-pad-right) 0 var(--params-pad-left);
       background: var(--panel-bg);
       border-radius: 0;
     }
 
     .print-rail {
-      grid-column: 2;
-      width: 100%;
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: var(--print-rail-w);
+      z-index: 2;
       display: flex;
-      align-self: stretch;
       min-height: 0;
       background: #000000;
       overflow: hidden;
@@ -292,8 +321,6 @@
       width: 100%;
       min-height: 0;
       position: relative;
-      padding: 1px;
-      box-sizing: border-box;
       background: #000000;
       overflow: hidden;
     }
@@ -322,12 +349,39 @@
     }
 
     .print-pct-value {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      width: 100%;
+      margin: 0;
+    }
+
+    .print-pct-value-inner {
+      position: relative;
+      display: inline-block;
+      line-height: 0.95;
+    }
+
+    .print-pct-num {
+      display: block;
       font-size: 80px;
       font-weight: 600;
       color: var(--text-main);
       line-height: 0.95;
       letter-spacing: 0;
-      margin: 0;
+    }
+
+    .print-pct-sym {
+      position: absolute;
+      left: 100%;
+      top: 5px;
+      margin-left: -2px;
+      font-size: 30px;
+      font-weight: 600;
+      color: var(--text-main);
+      line-height: 1;
+      white-space: nowrap;
+      pointer-events: none;
     }
 
     .print-pct-done {
@@ -367,12 +421,25 @@
       gap: 5px;
     }
 
-    .params-group--temp {
-      flex-grow: 1;
+    .params-temp-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
       margin-top: auto;
       margin-left: calc(-1 * var(--params-pad-left));
       margin-right: calc(-1 * var(--params-pad-right));
-      padding: 8px var(--params-pad-right) var(--params-pad-bottom) var(--params-pad-left);
+    }
+
+    .params-divider {
+      flex-shrink: 0;
+      height: 4px;
+      background: #000000;
+    }
+
+    .params-group--temp {
+      flex-grow: 0;
+      margin: 0;
+      padding: 10px var(--params-pad-right) var(--params-pad-bottom) var(--params-pad-left);
       border-radius: 0;
       background: rgba(249, 115, 22, 0.12);
     }
@@ -481,37 +548,39 @@
 
     @media (max-width: 400px) {
       .print-body {
-        grid-template-columns: minmax(0, 1fr) 3px 95px;
+        grid-template-columns: minmax(0, 1fr) 95px;
         gap: 8px 0;
+        --print-rail-w: 3px;
       }
-      .print-rail { width: 3px; }
-      .print-pct-value { font-size: clamp(72px, 22vw, 120px); margin-bottom: -4px; }
+      .print-pct-num { font-size: clamp(72px, 22vw, 120px); }
+      .print-pct-value { margin-bottom: -4px; }
     }
 
     body.device-surface { padding: 46px 24px; }
     body.device-surface .dashboard { max-width: 1250px; gap: 32px; }
-    body.device-surface .card:not(.p-printing) { padding: 20px 20px 22px; }
+    body.device-surface .card:not(.p-layout-print) { padding: 20px 20px 22px; }
     body.device-surface .card { min-height: 228px; }
-    body.device-surface .card.p-layout-print { min-height: 208px; }
+    body.device-surface .card.p-layout-print { padding: 0; min-height: 208px; }
     body.device-surface .printer-title { font-size: 21px; }
     body.device-surface .status-wrapper { font-size: 14px; padding: 5px 12px; }
-    body.device-surface .print-pct-value { font-size: 100px; }
+    body.device-surface .print-pct-num { font-size: 100px; }
     body.device-surface .print-pct-indicator { min-height: 96px; }
     body.device-surface .print-pct-done-circle { width: 88px; height: 88px; }
     body.device-surface .print-pct-done-icon { width: 40px; height: 40px; }
     body.device-surface .print-pct-name { font-size: 18px; }
     body.device-surface .print-pct-status { font-size: 13px; }
     body.device-surface .print-params {
-      --params-pad-top: 23px;
+      --params-pad-top: 10px;
       --params-pad-right: 23px;
-      --params-pad-bottom: 23px;
-      --params-pad-left: 19px;
+      --params-pad-bottom: 10px;
+      --params-pad-left: 10px;
       padding: var(--params-pad-top) var(--params-pad-right) 0 var(--params-pad-left);
     }
     body.device-surface .print-body {
       min-height: 118px;
       gap: 10px 0;
-      grid-template-columns: minmax(0, 1fr) 5px 105px;
+      grid-template-columns: minmax(0, 1fr) 105px;
+      --print-rail-w: 5px;
     }
     body.device-surface .metric-label { font-size: 12px; }
     body.device-surface .metric-value { font-size: 18px; }
@@ -528,7 +597,7 @@
     <div id="card_q2" class="card p-offline">
       <div class="card-header">
         <div class="printer-title">QIDI Q2</div>
-        <div class="status-wrapper"><div class="status-dot"></div><span id="state_q2">Offline</span></div>
+        <div class="status-wrapper"><div class="status-dot"></div><span id="state_q2">OFFLINE</span></div>
       </div>
       <div id="content_q2"></div>
     </div>
@@ -536,7 +605,7 @@
     <div id="card_u1" class="card p-offline">
       <div class="card-header">
         <div class="printer-title">Snapmaker U1</div>
-        <div class="status-wrapper"><div class="status-dot"></div><span id="state_u1">Offline</span></div>
+        <div class="status-wrapper"><div class="status-dot"></div><span id="state_u1">OFFLINE</span></div>
       </div>
       <div id="content_u1"></div>
     </div>
@@ -544,7 +613,7 @@
     <div id="card_p1s" class="card p-offline">
       <div class="card-header">
         <div class="printer-title">Bambu Lab P1S</div>
-        <div class="status-wrapper"><div class="status-dot"></div><span id="state_p1s">Offline</span></div>
+        <div class="status-wrapper"><div class="status-dot"></div><span id="state_p1s">OFFLINE</span></div>
       </div>
       <div id="content_p1s"></div>
     </div>
@@ -609,47 +678,66 @@
                     <div class="metric"><div class="metric-label">Estimated</div>${jobMetricValueHtml(estimated)}</div>
                     <div class="metric"><div class="metric-label">Layer</div>${jobMetricValueHtml(layer)}</div>
                   </div>
-                  <div class="params-group params-group--temp">
-                    <div class="metric"><div class="metric-label">Nozzle</div><div class="metric-value">${formatTemp(p.nozzle)}</div></div>
-                    <div class="metric"><div class="metric-label">Bed</div><div class="metric-value">${formatTemp(p.bed)}</div></div>
+                  <div class="params-temp-wrap">
+                    <div class="params-divider" aria-hidden="true"></div>
+                    <div class="params-group params-group--temp">
+                      <div class="metric"><div class="metric-label">Nozzle</div><div class="metric-value">${formatTemp(p.nozzle)}</div></div>
+                      <div class="metric"><div class="metric-label">Bed</div><div class="metric-value">${formatTemp(p.bed)}</div></div>
+                    </div>
                   </div>`;
     }
 
-    function isPrintComplete(progress, jobActive) {
+    function isPrintComplete(progress, jobActive, online) {
+      if (!online) return false;
       return !jobActive || progress >= 100;
     }
 
-    function getFillProgress(progress, jobActive) {
-      return isPrintComplete(progress, jobActive) ? 100 : progress;
+    function getFillProgress(progress, jobActive, online) {
+      if (!online) return 0;
+      return isPrintComplete(progress, jobActive, online) ? 100 : progress;
+    }
+
+    function getStatusText(p) {
+      if (!p.online) return 'OFFLINE';
+      if (p.state === 'READY') return 'STANDBY';
+      return p.state;
     }
 
     function renderPrintBody(p, opts) {
-      const { progress, printerName, statusText, jobActive } = opts;
-      const complete = isPrintComplete(progress, jobActive);
+      const { progress, printerName, statusText, jobActive, online } = opts;
+      const complete = isPrintComplete(progress, jobActive, online);
+      const pctText = online ? progress : '--';
       return `
               <div class="print-body">
                 <div class="print-pct">
-                  <div class="print-pct-block">
-                    <div class="print-pct-name">${printerName}</div>
-                    <div class="print-pct-mid">
-                      <div class="print-pct-indicator${complete ? ' is-complete' : ''}">
-                        <div class="print-pct-value">${progress}</div>
-                        <div class="print-pct-done" aria-hidden="true">
-                          <div class="print-pct-done-circle">
-                            <svg class="print-pct-done-icon" viewBox="0 0 24 24">
-                              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                            </svg>
+                  <div class="print-pct-area">
+                    <div class="print-pct-block">
+                      <div class="print-pct-name">${printerName}</div>
+                      <div class="print-pct-mid">
+                        <div class="print-pct-indicator${complete ? ' is-complete' : ''}">
+                          <div class="print-pct-value">
+                            <span class="print-pct-value-inner">
+                              <span class="print-pct-num">${pctText}</span>
+                              <span class="print-pct-sym" aria-hidden="true">%</span>
+                            </span>
+                          </div>
+                          <div class="print-pct-done" aria-hidden="true">
+                            <div class="print-pct-done-circle">
+                              <svg class="print-pct-done-icon" viewBox="0 0 24 24">
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                              </svg>
+                            </div>
                           </div>
                         </div>
+                        <div class="print-pct-label">PROGRESS</div>
                       </div>
-                      <div class="print-pct-label">PROGRESS</div>
+                      <div class="print-pct-status">${statusText}</div>
                     </div>
-                    <div class="print-pct-status">${statusText}</div>
                   </div>
-                </div>
-                <div class="print-rail" aria-hidden="true">
-                  <div class="print-rail-track">
-                    <div class="print-rail-fill${progress >= 100 ? ' is-full' : ''}"></div>
+                  <div class="print-rail" aria-hidden="true">
+                    <div class="print-rail-track">
+                      <div class="print-rail-fill${progress >= 100 ? ' is-full' : ''}"></div>
+                    </div>
                   </div>
                 </div>
                 <div class="print-params" data-job-active="${jobActive}">${renderPrintParams(p, jobActive)}</div>
@@ -670,12 +758,34 @@
       }
     }
 
+    function ensurePctValueStructure(valueEl) {
+      if (!valueEl || valueEl.querySelector('.print-pct-value-inner')) return;
+      const num = valueEl.querySelector('.print-pct-num');
+      if (!num) return;
+      const inner = document.createElement('span');
+      inner.className = 'print-pct-value-inner';
+      let sym = valueEl.querySelector('.print-pct-sym');
+      valueEl.insertBefore(inner, num);
+      inner.appendChild(num);
+      if (!sym) {
+        sym = document.createElement('span');
+        sym.className = 'print-pct-sym';
+        sym.setAttribute('aria-hidden', 'true');
+        sym.textContent = '%';
+      }
+      inner.appendChild(sym);
+    }
+
     function updatePrintBodyEl(body, p, opts) {
-      const { progress, printerName, statusText, jobActive } = opts;
-      const complete = isPrintComplete(progress, jobActive);
-      const fillProgress = getFillProgress(progress, jobActive);
+      const { progress, printerName, statusText, jobActive, online } = opts;
+      const complete = isPrintComplete(progress, jobActive, online);
+      const fillProgress = getFillProgress(progress, jobActive, online);
       body.querySelector('.print-pct-name').textContent = printerName;
-      body.querySelector('.print-pct-value').textContent = progress;
+      ensurePctValueStructure(body.querySelector('.print-pct-value'));
+      const numEl = body.querySelector('.print-pct-num');
+      const symEl = body.querySelector('.print-pct-sym');
+      if (numEl) numEl.textContent = online ? progress : '--';
+      if (symEl) symEl.hidden = !online;
       body.querySelector('.print-pct-status').textContent = statusText;
       const indicator = body.querySelector('.print-pct-indicator');
       if (indicator) indicator.classList.toggle('is-complete', complete);
@@ -728,8 +838,7 @@
     }
 
     function getContentMode(p) {
-      if (p.online && (p.state === 'PRINTING' || p.state === 'READY')) return 'print';
-      if (!p.online) return 'idle-offline';
+      if (!p.online || (p.online && (p.state === 'PRINTING' || p.state === 'READY'))) return 'print';
       if (p.state === 'PAUSED') return 'idle-paused';
       return 'idle-standby';
     }
@@ -744,14 +853,13 @@
           const stateEl = document.getElementById('state_' + id);
           if (!card || !stateEl) return;
 
-          if (p.state === 'READY') {
-            stateEl.innerText = 'STANDBY';
-          } else {
-            stateEl.innerText = p.state;
-          }
+          const statusText = getStatusText(p);
+          stateEl.innerText = statusText;
 
-          const stateClass = p.state === 'PRINTING' ? 'p-printing' : (p.state === 'PAUSED' ? 'p-paused' : (p.state === 'READY' ? 'p-ready' : 'p-offline'));
-          const showPrintLayout = p.online && (p.state === 'PRINTING' || p.state === 'READY');
+          const stateClass = !p.online
+            ? 'p-offline'
+            : (p.state === 'PRINTING' ? 'p-printing' : (p.state === 'PAUSED' ? 'p-paused' : (p.state === 'READY' ? 'p-ready' : 'p-offline')));
+          const showPrintLayout = !p.online || p.state === 'PRINTING' || p.state === 'READY';
           card.className = 'card ' + stateClass + (showPrintLayout ? ' p-layout-print' : '');
 
           const contentEl = document.getElementById('content_' + id);
@@ -759,24 +867,24 @@
           const contentMode = getContentMode(p);
 
           if (contentMode === 'print') {
-            const jobActive = p.state === 'PRINTING';
+            const jobActive = p.online && p.state === 'PRINTING';
             const progress = jobActive
               ? Math.min(100, Math.max(0, Number(p.progress) || 0))
               : 0;
-            const fillProgress = getFillProgress(progress, jobActive);
-            const statusText = stateEl.innerText;
+            const fillProgress = getFillProgress(progress, jobActive, p.online);
             const printOpts = {
               progress,
               printerName,
               statusText,
-              jobActive
+              jobActive,
+              online: p.online
             };
             card.style.setProperty('--progress', fillProgress + '%');
             card.style.setProperty('--progress-num', fillProgress);
 
             if (contentEl.dataset.layoutMode === 'print') {
               const body = contentEl.querySelector('.print-body');
-              if (body && body.querySelector('.print-pct-indicator')) {
+              if (body && body.querySelector('.print-pct-area')) {
                 updatePrintBodyEl(body, p, printOpts);
               } else {
                 contentEl.innerHTML = renderPrintBody(p, printOpts);
