@@ -26,8 +26,9 @@
     }
 
     :root {
-      --bg-color: #080a0f;
+      --bg-color: #06070b;
       --card-bg: #14171f;
+      --panel-bg: #0b0d11;
       --text-main: #d4dae6;
       --text-muted: #64748b;
 
@@ -156,7 +157,7 @@
 
     .print-body {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) var(--gap-pct-bar) 7px var(--gap-bar-params) 80px;
+      grid-template-columns: minmax(0, 1fr) var(--gap-pct-bar) 7px var(--gap-bar-params) 95px;
       align-items: stretch;
       gap: 10px 0;
       flex-grow: 1;
@@ -213,7 +214,7 @@
     .card.p-printing .print-pct-status {
       padding: 7px 10px 4px;
       border-radius: 4px;
-      background: #0e1116;
+      background: var(--panel-bg);
       animation: status-pulse 2s infinite ease-in-out;
     }
 
@@ -254,8 +255,8 @@
       --params-pad-bottom: 10px;
       --params-pad-left: 16px;
       padding: var(--params-pad-top) var(--params-pad-right) 0 var(--params-pad-left);
-      background: #0e1116;
-      border-radius: 6px;
+      background: var(--panel-bg);
+      border-radius: 0;
     }
 
     .print-rail {
@@ -316,7 +317,7 @@
       margin-left: calc(-1 * var(--params-pad-left));
       margin-right: calc(-1 * var(--params-pad-right));
       padding: 8px var(--params-pad-right) var(--params-pad-bottom) var(--params-pad-left);
-      border-radius: 0 0 6px 6px;
+      border-radius: 0;
       background: rgba(249, 115, 22, 0.12);
     }
 
@@ -419,7 +420,7 @@
 
     @media (max-width: 400px) {
       .print-body {
-        grid-template-columns: minmax(0, 1fr) var(--gap-pct-bar) 6px var(--gap-bar-params) 80px;
+        grid-template-columns: minmax(0, 1fr) var(--gap-pct-bar) 6px var(--gap-bar-params) 95px;
         gap: 8px 0;
       }
       .print-rail { width: 6px; }
@@ -446,7 +447,7 @@
     body.device-surface .print-body {
       min-height: 118px;
       gap: 10px 0;
-      grid-template-columns: minmax(0, 1fr) var(--gap-pct-bar) 8px var(--gap-bar-params) 90px;
+      grid-template-columns: minmax(0, 1fr) var(--gap-pct-bar) 8px var(--gap-bar-params) 105px;
     }
     body.device-surface .metric-label { font-size: 12px; }
     body.device-surface .metric-value { font-size: 18px; }
