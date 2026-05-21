@@ -37,9 +37,9 @@
       --clr-p1s: #10b981;
       --clr-offline: #334155;
 
-      --clr-q2-bg: rgba(0, 210, 255, 0.095);
-      --clr-u1-bg: rgba(240, 192, 40, 0.095);
-      --clr-p1s-bg: rgba(16, 185, 129, 0.095);
+      --clr-q2-bg: rgba(0, 210, 255, 0.055);
+      --clr-u1-bg: rgba(240, 192, 40, 0.055);
+      --clr-p1s-bg: rgba(16, 185, 129, 0.055);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -111,13 +111,8 @@
       padding: 0;
     }
 
-    .card.p-printing .card-header {
+    .card.p-layout-print .card-header {
       display: none;
-    }
-
-    .card.p-ready.p-layout-print .card-header {
-      padding: 16px 16px 12px;
-      margin-bottom: 0;
     }
 
     .card:not(.p-layout-print) {
@@ -157,7 +152,7 @@
 
     .print-body {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) var(--gap-pct-bar) 7px var(--gap-bar-params) 95px;
+      grid-template-columns: minmax(0, 1fr) 4px 95px;
       align-items: stretch;
       gap: 10px 0;
       flex-grow: 1;
@@ -173,10 +168,29 @@
       justify-content: center;
       align-self: stretch;
       min-width: 0;
-      padding: 22px 10px 12px;
+      position: relative;
+      overflow: hidden;
+      padding: 22px var(--gap-pct-bar) 12px 10px;
+      background: var(--panel-bg);
+      transition: --progress 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .print-pct::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: var(--progress, 0%);
+      background: var(--printer-bg-clr);
+      filter: saturate(0.7);
+      z-index: 0;
+      transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .print-pct-block {
+      position: relative;
+      z-index: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -236,13 +250,17 @@
       line-height: 1;
     }
 
+    .print-pct-indicator.is-complete + .print-pct-label {
+      display: none;
+    }
+
     @keyframes status-pulse {
       0%, 100% { opacity: 0.35; }
       50% { opacity: 1; }
     }
 
     .print-params {
-      grid-column: 5;
+      grid-column: 3;
       display: flex;
       flex-direction: column;
       justify-content: flex-start;
@@ -260,7 +278,7 @@
     }
 
     .print-rail {
-      grid-column: 3;
+      grid-column: 2;
       width: 100%;
       display: flex;
       align-self: stretch;
@@ -296,6 +314,13 @@
       height: 100%;
     }
 
+    .print-pct-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 76px;
+    }
+
     .print-pct-value {
       font-size: 80px;
       font-weight: 600;
@@ -303,6 +328,37 @@
       line-height: 0.95;
       letter-spacing: 0;
       margin: 0;
+    }
+
+    .print-pct-done {
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .print-pct-indicator.is-complete .print-pct-value {
+      display: none;
+    }
+
+    .print-pct-indicator.is-complete .print-pct-done {
+      display: flex;
+    }
+
+    .print-pct-done-circle {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      border: 2px solid var(--printer-clr);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--printer-clr);
+    }
+
+    .print-pct-done-icon {
+      width: 34px;
+      height: 34px;
+      fill: currentColor;
     }
 
     .params-group {
@@ -348,6 +404,11 @@
       overflow: hidden;
       text-overflow: ellipsis;
       max-width: 100%;
+    }
+
+    .params-group--job .metric-value.is-placeholder {
+      color: var(--text-muted);
+      opacity: 0.63;
     }
 
     .params-group--temp .metric-value {
@@ -420,10 +481,10 @@
 
     @media (max-width: 400px) {
       .print-body {
-        grid-template-columns: minmax(0, 1fr) var(--gap-pct-bar) 6px var(--gap-bar-params) 95px;
+        grid-template-columns: minmax(0, 1fr) 3px 95px;
         gap: 8px 0;
       }
-      .print-rail { width: 6px; }
+      .print-rail { width: 3px; }
       .print-pct-value { font-size: clamp(72px, 22vw, 120px); margin-bottom: -4px; }
     }
 
@@ -435,6 +496,9 @@
     body.device-surface .printer-title { font-size: 21px; }
     body.device-surface .status-wrapper { font-size: 14px; padding: 5px 12px; }
     body.device-surface .print-pct-value { font-size: 100px; }
+    body.device-surface .print-pct-indicator { min-height: 96px; }
+    body.device-surface .print-pct-done-circle { width: 88px; height: 88px; }
+    body.device-surface .print-pct-done-icon { width: 40px; height: 40px; }
     body.device-surface .print-pct-name { font-size: 18px; }
     body.device-surface .print-pct-status { font-size: 13px; }
     body.device-surface .print-params {
@@ -447,7 +511,7 @@
     body.device-surface .print-body {
       min-height: 118px;
       gap: 10px 0;
-      grid-template-columns: minmax(0, 1fr) var(--gap-pct-bar) 8px var(--gap-bar-params) 105px;
+      grid-template-columns: minmax(0, 1fr) 5px 105px;
     }
     body.device-surface .metric-label { font-size: 12px; }
     body.device-surface .metric-value { font-size: 18px; }
@@ -523,15 +587,27 @@
       return '--:--';
     }
 
+    const JOB_PLACEHOLDER = '--:--';
+
+    function jobMetricValueHtml(value) {
+      const ph = value === JOB_PLACEHOLDER;
+      return `<div class="metric-value${ph ? ' is-placeholder' : ''}">${value}</div>`;
+    }
+
+    function setJobMetricValue(el, value) {
+      el.textContent = value;
+      el.classList.toggle('is-placeholder', value === JOB_PLACEHOLDER);
+    }
+
     function renderPrintParams(p, active) {
-      const remaining = active ? (p.remaining || '--') : '--';
-      const estimated = active ? formatEstimated(p) : '--:--';
-      const layer = active ? (p.layer || '--:--') : '--:--';
+      const remaining = active ? (p.remaining || JOB_PLACEHOLDER) : JOB_PLACEHOLDER;
+      const estimated = active ? formatEstimated(p) : JOB_PLACEHOLDER;
+      const layer = active ? (p.layer || JOB_PLACEHOLDER) : JOB_PLACEHOLDER;
       return `
                   <div class="params-group params-group--job">
-                    <div class="metric"><div class="metric-label">Remaining</div><div class="metric-value">${remaining}</div></div>
-                    <div class="metric"><div class="metric-label">Estimated</div><div class="metric-value">${estimated}</div></div>
-                    <div class="metric"><div class="metric-label">Layer</div><div class="metric-value">${layer}</div></div>
+                    <div class="metric"><div class="metric-label">Remaining</div>${jobMetricValueHtml(remaining)}</div>
+                    <div class="metric"><div class="metric-label">Estimated</div>${jobMetricValueHtml(estimated)}</div>
+                    <div class="metric"><div class="metric-label">Layer</div>${jobMetricValueHtml(layer)}</div>
                   </div>
                   <div class="params-group params-group--temp">
                     <div class="metric"><div class="metric-label">Nozzle</div><div class="metric-value">${formatTemp(p.nozzle)}</div></div>
@@ -539,15 +615,33 @@
                   </div>`;
     }
 
+    function isPrintComplete(progress, jobActive) {
+      return !jobActive || progress >= 100;
+    }
+
+    function getFillProgress(progress, jobActive) {
+      return isPrintComplete(progress, jobActive) ? 100 : progress;
+    }
+
     function renderPrintBody(p, opts) {
       const { progress, printerName, statusText, jobActive } = opts;
+      const complete = isPrintComplete(progress, jobActive);
       return `
               <div class="print-body">
                 <div class="print-pct">
                   <div class="print-pct-block">
                     <div class="print-pct-name">${printerName}</div>
                     <div class="print-pct-mid">
-                      <div class="print-pct-value">${progress}</div>
+                      <div class="print-pct-indicator${complete ? ' is-complete' : ''}">
+                        <div class="print-pct-value">${progress}</div>
+                        <div class="print-pct-done" aria-hidden="true">
+                          <div class="print-pct-done-circle">
+                            <svg class="print-pct-done-icon" viewBox="0 0 24 24">
+                              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
                       <div class="print-pct-label">PROGRESS</div>
                     </div>
                     <div class="print-pct-status">${statusText}</div>
@@ -565,9 +659,9 @@
     function updatePrintParamsEl(paramsEl, p, active) {
       const jobValues = paramsEl.querySelectorAll('.params-group--job .metric-value');
       if (jobValues.length >= 3) {
-        jobValues[0].textContent = active ? (p.remaining || '--') : '--';
-        jobValues[1].textContent = active ? formatEstimated(p) : '--:--';
-        jobValues[2].textContent = active ? (p.layer || '--:--') : '--:--';
+        setJobMetricValue(jobValues[0], active ? (p.remaining || JOB_PLACEHOLDER) : JOB_PLACEHOLDER);
+        setJobMetricValue(jobValues[1], active ? formatEstimated(p) : JOB_PLACEHOLDER);
+        setJobMetricValue(jobValues[2], active ? (p.layer || JOB_PLACEHOLDER) : JOB_PLACEHOLDER);
       }
       const tempValues = paramsEl.querySelectorAll('.params-group--temp .metric-value');
       if (tempValues.length >= 2) {
@@ -578,11 +672,15 @@
 
     function updatePrintBodyEl(body, p, opts) {
       const { progress, printerName, statusText, jobActive } = opts;
+      const complete = isPrintComplete(progress, jobActive);
+      const fillProgress = getFillProgress(progress, jobActive);
       body.querySelector('.print-pct-name').textContent = printerName;
       body.querySelector('.print-pct-value').textContent = progress;
       body.querySelector('.print-pct-status').textContent = statusText;
+      const indicator = body.querySelector('.print-pct-indicator');
+      if (indicator) indicator.classList.toggle('is-complete', complete);
       const fill = body.querySelector('.print-rail-fill');
-      fill.classList.toggle('is-full', progress >= 100);
+      if (fill) fill.classList.toggle('is-full', fillProgress >= 100);
       const paramsEl = body.querySelector('.print-params');
       if (paramsEl.dataset.jobActive !== String(jobActive)) {
         paramsEl.dataset.jobActive = String(jobActive);
@@ -661,22 +759,29 @@
           const contentMode = getContentMode(p);
 
           if (contentMode === 'print') {
-            const progress = p.state === 'PRINTING'
+            const jobActive = p.state === 'PRINTING';
+            const progress = jobActive
               ? Math.min(100, Math.max(0, Number(p.progress) || 0))
               : 0;
+            const fillProgress = getFillProgress(progress, jobActive);
             const statusText = stateEl.innerText;
             const printOpts = {
               progress,
               printerName,
               statusText,
-              jobActive: p.state === 'PRINTING'
+              jobActive
             };
-            card.style.setProperty('--progress', progress + '%');
-            card.style.setProperty('--progress-num', progress);
+            card.style.setProperty('--progress', fillProgress + '%');
+            card.style.setProperty('--progress-num', fillProgress);
 
             if (contentEl.dataset.layoutMode === 'print') {
               const body = contentEl.querySelector('.print-body');
-              if (body) updatePrintBodyEl(body, p, printOpts);
+              if (body && body.querySelector('.print-pct-indicator')) {
+                updatePrintBodyEl(body, p, printOpts);
+              } else {
+                contentEl.innerHTML = renderPrintBody(p, printOpts);
+                contentEl.dataset.layoutMode = 'print';
+              }
             } else {
               contentEl.innerHTML = renderPrintBody(p, printOpts);
               contentEl.dataset.layoutMode = 'print';
