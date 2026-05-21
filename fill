@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DASHBOARD · Card Fill</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='9' height='9' fill='%230ea5e9' /%3E%3Crect x='13' y='2' width='9' height='9' fill='%2322c55e' /%3E%3Crect x='2' y='13' width='9' height='9' fill='%23eab308' /%3E%3Crect x='13' y='13' width='9' height='9' fill='%2364748b' /%3E%3C/svg%3E">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
+
+  <style>
+    @property --progress {
+      syntax: '<percentage>';
+      inherits: true;
+      initial-value: 0%;
+    }
+
+    @property --progress-num {
+      syntax: '<number>';
+      inherits: true;
+      initial-value: 0;
+    }
+
+    :root {
+      --bg-color: #080a0f;
+      --card-bg: #14171f;
+      --text-main: #d4dae6;
+      --text-muted: #64748b;
+
+      --clr-q2: #00d2ff;
+      --clr-u1: #f0c028;
+      --clr-p1s: #10b981;
+      --clr-offline: #334155;
+
+      --clr-q2-bg: rgba(0, 210, 255, 0.095);
+      --clr-u1-bg: rgba(240, 192, 40, 0.095);
+      --clr-p1s-bg: rgba(16, 185, 129, 0.095);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 500;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    .dashboard {
+      width: 100%;
+      max-width: 1050px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 28px;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border: none;
+      border-radius: 10px;
+      padding: 16px 16px 18px;
+      display: flex;
+      flex-direction: column;
+      min-height: 200px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+      position: relative;
+      overflow: hidden;
+      transition: background-color 0.3s;
+    }
+
+    .card:not(.p-printing):hover { background-color: #1c202b; }
+
+    #card_q2 { --printer-clr: var(--clr-q2); --printer-bg-clr: var(--clr-q2-bg); }
+    #card_u1 { --printer-clr: var(--clr-u1); --printer-bg-clr: var(--clr-u1-bg); }
+    #card_p1s { --printer-clr: var(--clr-p1s); --printer-bg-clr: var(--clr-p1s-bg); }
+
+    .card.p-offline { --status-clr: var(--clr-offline); }
+    .card.p-printing, .card.p-ready, .card.p-paused { --status-clr: var(--printer-clr); }
+
+    .card-header, #content_q2, #content_u1, #content_p1s {
+      position: relative;
+      z-index: 1;
+    }
+
+    #content_q2, #content_u1, #content_p1s {
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 18px;
+      flex-shrink: 0;
+    }
+
+    .card.p-printing {
+      min-height: 188px;
+    }
+
+    .printer-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--printer-clr, var(--text-main));
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .card.p-offline .printer-title { color: var(--text-muted); }
+
+    .status-wrapper {
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.28);
+      color: var(--text-muted);
+    }
+
+    .status-dot { display: none; }
+
+    /* --- PRINTING --- */
+
+    .print-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 7px 80px;
+      align-items: stretch;
+      gap: 10px 12px;
+      flex-grow: 1;
+      min-height: 108px;
+    }
+
+    .print-pct {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      align-self: stretch;
+      min-width: 0;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: #0e1116;
+    }
+
+    .print-pct-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 0;
+      width: 100%;
+    }
+
+    .print-params {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 8px;
+      min-width: 0;
+      padding: 2px 0 2px 4px;
+    }
+
+    .print-rail {
+      width: 7px;
+      display: flex;
+      align-self: stretch;
+      min-height: 0;
+      background: #000000;
+      border-radius: 2px;
+    }
+
+    .print-rail-track {
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+      position: relative;
+      padding: 1px;
+      box-sizing: border-box;
+      border-radius: 999px;
+      background: #000000;
+    }
+
+    .print-rail-fill {
+      position: absolute;
+      left: 1px;
+      right: 1px;
+      bottom: 1px;
+      height: calc((100% - 2px) * var(--progress-num, 0) / 100);
+      max-height: calc(100% - 2px);
+      background: var(--printer-clr);
+      border-radius: 999px;
+      transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .print-rail-fill.is-full {
+      height: calc(100% - 2px);
+    }
+
+    .print-pct-value {
+      font-size: 80px;
+      font-weight: 600;
+      color: var(--text-main);
+      line-height: 0.95;
+      letter-spacing: 0;
+      margin-bottom: -6px;
+    }
+
+    .print-pct-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-top: 5px;
+      line-height: 1;
+    }
+
+    .params-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .params-group--temp {
+      padding-top: 8px;
+      margin-top: 2px;
+      border-top: 1px solid #000000;
+    }
+
+    .metric {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      align-items: flex-start;
+      text-align: left;
+      line-height: 1.15;
+      width: 100%;
+    }
+
+    .metric-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.45px;
+      white-space: nowrap;
+    }
+
+    .metric-value {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+
+    .params-group--temp .metric-value {
+      font-size: 16px;
+    }
+
+    /* --- IDLE --- */
+
+    .idle-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex-grow: 1;
+      padding: 8px 0 4px;
+    }
+
+    .idle-circle {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.2);
+      border: 2px solid var(--status-clr);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 14px;
+      color: var(--status-clr);
+    }
+
+    .card.p-ready .idle-circle, .card.p-paused .idle-circle {
+      animation: breathe 2.5s infinite ease-in-out;
+    }
+
+    @keyframes breathe {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.03); box-shadow: 0 0 16px rgba(0, 0, 0, 0.25); }
+    }
+
+    .idle-icon { width: 28px; height: 28px; fill: currentColor; }
+
+    .idle-title {
+      font-size: 16px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+      text-align: center;
+    }
+    .card.p-ready .idle-title, .card.p-paused .idle-title { color: var(--text-main); }
+    .card.p-offline .idle-title { color: var(--text-muted); }
+
+    .idle-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      text-align: center;
+    }
+
+    @media (min-width: 961px) {
+      body { justify-content: center; }
+    }
+
+    @media (max-width: 960px) {
+      .dashboard { grid-template-columns: 1fr; gap: 16px; max-width: 480px; }
+      body { padding: 20px 16px; }
+    }
+
+    @media (max-width: 400px) {
+      .print-body {
+        grid-template-columns: minmax(0, 1fr) 6px 80px;
+        gap: 8px 10px;
+      }
+      .print-rail { width: 6px; }
+      .print-pct-value { font-size: clamp(72px, 22vw, 120px); margin-bottom: -4px; }
+      .print-pct-label { margin-top: -3px; }
+    }
+
+    body.device-surface { padding: 46px 24px; }
+    body.device-surface .dashboard { max-width: 1250px; gap: 32px; }
+    body.device-surface .card { padding: 20px 20px 22px; min-height: 228px; }
+    body.device-surface .card.p-printing { min-height: 208px; }
+    body.device-surface .printer-title { font-size: 21px; }
+    body.device-surface .status-wrapper { font-size: 14px; padding: 5px 12px; }
+    body.device-surface .print-pct-value { font-size: 100px; }
+    body.device-surface .print-pct-label { font-size: 13px; }
+    body.device-surface .print-body { min-height: 118px; gap: 10px 14px; }
+    body.device-surface .print-rail { width: 8px; }
+    body.device-surface .metric-label { font-size: 12px; }
+    body.device-surface .metric-value { font-size: 18px; }
+    body.device-surface .params-group--temp .metric-value { font-size: 20px; }
+    body.device-surface .idle-circle { width: 74px; height: 74px; }
+    body.device-surface .idle-icon { width: 34px; height: 34px; }
+    body.device-surface .idle-title { font-size: 19px; }
+    body.device-surface .idle-subtitle { font-size: 15px; }
+  </style>
+</head>
+<body>
+
+  <div class="dashboard">
+    <div id="card_q2" class="card p-offline">
+      <div class="card-header">
+        <div class="printer-title">QIDI Q2</div>
+        <div class="status-wrapper"><div class="status-dot"></div><span id="state_q2">Offline</span></div>
+      </div>
+      <div id="content_q2"></div>
+    </div>
+
+    <div id="card_u1" class="card p-offline">
+      <div class="card-header">
+        <div class="printer-title">Snapmaker U1</div>
+        <div class="status-wrapper"><div class="status-dot"></div><span id="state_u1">Offline</span></div>
+      </div>
+      <div id="content_u1"></div>
+    </div>
+
+    <div id="card_p1s" class="card p-offline">
+      <div class="card-header">
+        <div class="printer-title">Bambu Lab P1S</div>
+        <div class="status-wrapper"><div class="status-dot"></div><span id="state_p1s">Offline</span></div>
+      </div>
+      <div id="content_p1s"></div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      const isWindows = /Win/i.test(navigator.platform) || /Windows/i.test(navigator.userAgent);
+      const screenRatio = window.screen.width / window.screen.height;
+      const isAspectRatio32 = Math.abs(screenRatio - 1.5) < 0.05;
+      const isHighDPI = window.devicePixelRatio >= 1.5;
+
+      if (isWindows && isAspectRatio32 && isHighDPI) {
+        document.body.classList.add('device-surface');
+      }
+    });
+
+    const cloudBroker = 'm0722111.ala.eu-central-1.emqxsl.com';
+    const cloudPort = 8084;
+    const cloudUser = 'DatiX';
+    const cloudPass = 'fdfkjy';
+    const cloudTopic = 'my_printers/data';
+
+    const clientId = 'web_dashboard_' + Math.random().toString(16).substr(2, 8);
+    const mqtt = new Paho.MQTT.Client(cloudBroker, cloudPort, clientId);
+
+    mqtt.onConnectionLost = () => { setTimeout(connectMQTT, 2000); };
+
+    function formatTemp(value) {
+      const temp = Number(value);
+      if (!Number.isFinite(temp) || temp <= 0) return '--';
+      return Math.round(temp) + '°';
+    }
+
+    mqtt.onMessageArrived = (message) => {
+      try {
+        const data = JSON.parse(message.payloadString);
+
+        Object.keys(data).forEach(id => {
+          const p = data[id];
+          const card = document.getElementById('card_' + id);
+          const stateEl = document.getElementById('state_' + id);
+          if (!card || !stateEl) return;
+
+          if (p.state === 'READY') {
+            stateEl.innerText = 'STANDBY';
+          } else {
+            stateEl.innerText = p.state;
+          }
+
+          card.className = 'card ' + (p.state === 'PRINTING' ? 'p-printing' : (p.state === 'PAUSED' ? 'p-paused' : (p.state === 'READY' ? 'p-ready' : 'p-offline')));
+
+          let html = '';
+          if (p.online && p.state === 'PRINTING') {
+            let fTime = '--:--';
+            if (p.remSec > 0) {
+              let d = new Date(Date.now() + p.remSec * 1000);
+              fTime = d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+            }
+
+            const progress = Math.min(100, Math.max(0, Number(p.progress) || 0));
+            card.style.setProperty('--progress', progress + '%');
+            card.style.setProperty('--progress-num', progress);
+
+            html = `
+              <div class="print-body">
+                <div class="print-pct">
+                  <div class="print-pct-block">
+                    <div class="print-pct-value">${progress}</div>
+                    <div class="print-pct-label">Progress</div>
+                  </div>
+                </div>
+                <div class="print-rail" aria-hidden="true">
+                  <div class="print-rail-track">
+                    <div class="print-rail-fill${progress >= 100 ? ' is-full' : ''}"></div>
+                  </div>
+                </div>
+                <div class="print-params">
+                  <div class="params-group params-group--job">
+                    <div class="metric"><div class="metric-label">Remaining</div><div class="metric-value">${p.remaining}</div></div>
+                    <div class="metric"><div class="metric-label">Estimated</div><div class="metric-value">${fTime}</div></div>
+                    <div class="metric"><div class="metric-label">Layer</div><div class="metric-value">${p.layer}</div></div>
+                  </div>
+                  <div class="params-group params-group--temp">
+                    <div class="metric"><div class="metric-label">Nozzle</div><div class="metric-value">${formatTemp(p.nozzle)}</div></div>
+                    <div class="metric"><div class="metric-label">Bed</div><div class="metric-value">${formatTemp(p.bed)}</div></div>
+                  </div>
+                </div>
+              </div>`;
+          } else {
+            card.style.setProperty('--progress', '0%');
+            card.style.setProperty('--progress-num', 0);
+
+            if (!p.online) {
+              html = `
+                <div class="idle-box">
+                  <div class="idle-circle">
+                    <svg class="idle-icon" viewBox="0 0 24 24">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                    </svg>
+                  </div>
+                  <div class="idle-title">No Connection</div>
+                  <div class="idle-subtitle">Check power or network</div>
+                </div>`;
+            } else if (p.state === 'PAUSED') {
+              html = `
+                <div class="idle-box">
+                  <div class="idle-circle">
+                    <svg class="idle-icon" viewBox="0 0 24 24">
+                      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                    </svg>
+                  </div>
+                  <div class="idle-title">Print Paused</div>
+                  <div class="idle-subtitle">Waiting to resume</div>
+                </div>`;
+            } else {
+              html = `
+                <div class="idle-box">
+                  <div class="idle-circle">
+                    <svg class="idle-icon" viewBox="0 0 24 24">
+                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                    </svg>
+                  </div>
+                  <div class="idle-title">Standby Mode</div>
+                  <div class="idle-subtitle">Ready to print</div>
+                </div>`;
+            }
+          }
+
+          document.getElementById('content_' + id).innerHTML = html;
+
+          const baseOrder = id === 'q2' ? 1 : (id === 'u1' ? 2 : 3);
+          card.style.order = (p.online && p.state === 'PRINTING') ? baseOrder : (baseOrder + 3);
+        });
+      } catch (e) { console.error(e); }
+    };
+
+    function connectMQTT() {
+      mqtt.connect({
+        useSSL: true,
+        userName: cloudUser,
+        password: cloudPass,
+        onSuccess: () => { mqtt.subscribe(cloudTopic); },
+        onFailure: () => { setTimeout(connectMQTT, 2000); }
+      });
+    }
+
+    connectMQTT();
+  </script>
+</body>
+</html>
