@@ -105,7 +105,7 @@
       flex-shrink: 0;
     }
 
-    .card.p-printing {
+    .card.p-layout-print {
       min-height: 188px;
       padding: 0;
     }
@@ -114,7 +114,12 @@
       display: none;
     }
 
-    .card:not(.p-printing) {
+    .card.p-ready.p-layout-print .card-header {
+      padding: 16px 16px 12px;
+      margin-bottom: 0;
+    }
+
+    .card:not(.p-layout-print) {
       padding: 16px 16px 18px;
     }
 
@@ -167,7 +172,7 @@
       justify-content: center;
       align-self: stretch;
       min-width: 0;
-      padding: 8px 10px;
+      padding: 22px 10px 12px;
     }
 
     .print-pct-block {
@@ -179,7 +184,7 @@
       gap: 6px;
       width: 100%;
       min-height: 100%;
-      padding: 4px 0 2px;
+      padding: 0;
     }
 
     .print-pct-name {
@@ -203,6 +208,36 @@
       color: var(--text-muted);
       line-height: 1;
       margin-top: 0;
+    }
+
+    .card.p-printing .print-pct-status {
+      padding: 7px 10px 4px;
+      border-radius: 4px;
+      background: #0e1116;
+      animation: status-pulse 2s infinite ease-in-out;
+    }
+
+    .print-pct-mid {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+      margin: auto 0;
+    }
+
+    .print-pct-label {
+      margin-top: -4px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.45px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      line-height: 1;
+    }
+
+    @keyframes status-pulse {
+      0%, 100% { opacity: 0.35; }
+      50% { opacity: 1; }
     }
 
     .print-params {
@@ -266,7 +301,7 @@
       color: var(--text-main);
       line-height: 0.95;
       letter-spacing: 0;
-      margin: auto 0;
+      margin: 0;
     }
 
     .params-group {
@@ -395,17 +430,17 @@
     body.device-surface .dashboard { max-width: 1250px; gap: 32px; }
     body.device-surface .card:not(.p-printing) { padding: 20px 20px 22px; }
     body.device-surface .card { min-height: 228px; }
-    body.device-surface .card.p-printing { min-height: 208px; }
+    body.device-surface .card.p-layout-print { min-height: 208px; }
     body.device-surface .printer-title { font-size: 21px; }
     body.device-surface .status-wrapper { font-size: 14px; padding: 5px 12px; }
     body.device-surface .print-pct-value { font-size: 100px; }
     body.device-surface .print-pct-name { font-size: 18px; }
     body.device-surface .print-pct-status { font-size: 13px; }
     body.device-surface .print-params {
-      --params-pad-top: 20px;
-      --params-pad-right: 20px;
-      --params-pad-bottom: 20px;
-      --params-pad-left: 16px;
+      --params-pad-top: 23px;
+      --params-pad-right: 23px;
+      --params-pad-bottom: 23px;
+      --params-pad-left: 19px;
       padding: var(--params-pad-top) var(--params-pad-right) 0 var(--params-pad-left);
     }
     body.device-surface .print-body {
@@ -479,6 +514,127 @@
       return Math.round(temp) + '°';
     }
 
+    function formatEstimated(p) {
+      if (p.remSec > 0) {
+        const d = new Date(Date.now() + p.remSec * 1000);
+        return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+      }
+      return '--:--';
+    }
+
+    function renderPrintParams(p, active) {
+      const remaining = active ? (p.remaining || '--') : '--';
+      const estimated = active ? formatEstimated(p) : '--:--';
+      const layer = active ? (p.layer || '--:--') : '--:--';
+      return `
+                  <div class="params-group params-group--job">
+                    <div class="metric"><div class="metric-label">Remaining</div><div class="metric-value">${remaining}</div></div>
+                    <div class="metric"><div class="metric-label">Estimated</div><div class="metric-value">${estimated}</div></div>
+                    <div class="metric"><div class="metric-label">Layer</div><div class="metric-value">${layer}</div></div>
+                  </div>
+                  <div class="params-group params-group--temp">
+                    <div class="metric"><div class="metric-label">Nozzle</div><div class="metric-value">${formatTemp(p.nozzle)}</div></div>
+                    <div class="metric"><div class="metric-label">Bed</div><div class="metric-value">${formatTemp(p.bed)}</div></div>
+                  </div>`;
+    }
+
+    function renderPrintBody(p, opts) {
+      const { progress, printerName, statusText, jobActive } = opts;
+      return `
+              <div class="print-body">
+                <div class="print-pct">
+                  <div class="print-pct-block">
+                    <div class="print-pct-name">${printerName}</div>
+                    <div class="print-pct-mid">
+                      <div class="print-pct-value">${progress}</div>
+                      <div class="print-pct-label">PROGRESS</div>
+                    </div>
+                    <div class="print-pct-status">${statusText}</div>
+                  </div>
+                </div>
+                <div class="print-rail" aria-hidden="true">
+                  <div class="print-rail-track">
+                    <div class="print-rail-fill${progress >= 100 ? ' is-full' : ''}"></div>
+                  </div>
+                </div>
+                <div class="print-params" data-job-active="${jobActive}">${renderPrintParams(p, jobActive)}</div>
+              </div>`;
+    }
+
+    function updatePrintParamsEl(paramsEl, p, active) {
+      const jobValues = paramsEl.querySelectorAll('.params-group--job .metric-value');
+      if (jobValues.length >= 3) {
+        jobValues[0].textContent = active ? (p.remaining || '--') : '--';
+        jobValues[1].textContent = active ? formatEstimated(p) : '--:--';
+        jobValues[2].textContent = active ? (p.layer || '--:--') : '--:--';
+      }
+      const tempValues = paramsEl.querySelectorAll('.params-group--temp .metric-value');
+      if (tempValues.length >= 2) {
+        tempValues[0].textContent = formatTemp(p.nozzle);
+        tempValues[1].textContent = formatTemp(p.bed);
+      }
+    }
+
+    function updatePrintBodyEl(body, p, opts) {
+      const { progress, printerName, statusText, jobActive } = opts;
+      body.querySelector('.print-pct-name').textContent = printerName;
+      body.querySelector('.print-pct-value').textContent = progress;
+      body.querySelector('.print-pct-status').textContent = statusText;
+      const fill = body.querySelector('.print-rail-fill');
+      fill.classList.toggle('is-full', progress >= 100);
+      const paramsEl = body.querySelector('.print-params');
+      if (paramsEl.dataset.jobActive !== String(jobActive)) {
+        paramsEl.dataset.jobActive = String(jobActive);
+        paramsEl.innerHTML = renderPrintParams(p, jobActive);
+      } else {
+        updatePrintParamsEl(paramsEl, p, jobActive);
+      }
+    }
+
+    function renderIdleHtml(p) {
+      if (!p.online) {
+        return `
+                <div class="idle-box">
+                  <div class="idle-circle">
+                    <svg class="idle-icon" viewBox="0 0 24 24">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                    </svg>
+                  </div>
+                  <div class="idle-title">No Connection</div>
+                  <div class="idle-subtitle">Check power or network</div>
+                </div>`;
+      }
+      if (p.state === 'PAUSED') {
+        return `
+                <div class="idle-box">
+                  <div class="idle-circle">
+                    <svg class="idle-icon" viewBox="0 0 24 24">
+                      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                    </svg>
+                  </div>
+                  <div class="idle-title">Print Paused</div>
+                  <div class="idle-subtitle">Waiting to resume</div>
+                </div>`;
+      }
+      return `
+                <div class="idle-box">
+                  <div class="idle-circle">
+                    <svg class="idle-icon" viewBox="0 0 24 24">
+                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                    </svg>
+                  </div>
+                  <div class="idle-title">Standby Mode</div>
+                  <div class="idle-subtitle">Ready to print</div>
+                </div>`;
+    }
+
+    function getContentMode(p) {
+      if (p.online && (p.state === 'PRINTING' || p.state === 'READY')) return 'print';
+      if (!p.online) return 'idle-offline';
+      if (p.state === 'PAUSED') return 'idle-paused';
+      return 'idle-standby';
+    }
+
     mqtt.onMessageArrived = (message) => {
       try {
         const data = JSON.parse(message.payloadString);
@@ -495,89 +651,44 @@
             stateEl.innerText = p.state;
           }
 
-          card.className = 'card ' + (p.state === 'PRINTING' ? 'p-printing' : (p.state === 'PAUSED' ? 'p-paused' : (p.state === 'READY' ? 'p-ready' : 'p-offline')));
+          const stateClass = p.state === 'PRINTING' ? 'p-printing' : (p.state === 'PAUSED' ? 'p-paused' : (p.state === 'READY' ? 'p-ready' : 'p-offline'));
+          const showPrintLayout = p.online && (p.state === 'PRINTING' || p.state === 'READY');
+          card.className = 'card ' + stateClass + (showPrintLayout ? ' p-layout-print' : '');
 
-          let html = '';
-          if (p.online && p.state === 'PRINTING') {
-            let fTime = '--:--';
-            if (p.remSec > 0) {
-              let d = new Date(Date.now() + p.remSec * 1000);
-              fTime = d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
-            }
+          const contentEl = document.getElementById('content_' + id);
+          const printerName = card.querySelector('.printer-title').textContent;
+          const contentMode = getContentMode(p);
 
-            const progress = Math.min(100, Math.max(0, Number(p.progress) || 0));
-            const printerName = card.querySelector('.printer-title').textContent;
+          if (contentMode === 'print') {
+            const progress = p.state === 'PRINTING'
+              ? Math.min(100, Math.max(0, Number(p.progress) || 0))
+              : 0;
             const statusText = stateEl.innerText;
+            const printOpts = {
+              progress,
+              printerName,
+              statusText,
+              jobActive: p.state === 'PRINTING'
+            };
             card.style.setProperty('--progress', progress + '%');
             card.style.setProperty('--progress-num', progress);
 
-            html = `
-              <div class="print-body">
-                <div class="print-pct">
-                  <div class="print-pct-block">
-                    <div class="print-pct-name">${printerName}</div>
-                    <div class="print-pct-value">${progress}</div>
-                    <div class="print-pct-status">${statusText}</div>
-                  </div>
-                </div>
-                <div class="print-rail" aria-hidden="true">
-                  <div class="print-rail-track">
-                    <div class="print-rail-fill${progress >= 100 ? ' is-full' : ''}"></div>
-                  </div>
-                </div>
-                <div class="print-params">
-                  <div class="params-group params-group--job">
-                    <div class="metric"><div class="metric-label">Remaining</div><div class="metric-value">${p.remaining}</div></div>
-                    <div class="metric"><div class="metric-label">Estimated</div><div class="metric-value">${fTime}</div></div>
-                    <div class="metric"><div class="metric-label">Layer</div><div class="metric-value">${p.layer}</div></div>
-                  </div>
-                  <div class="params-group params-group--temp">
-                    <div class="metric"><div class="metric-label">Nozzle</div><div class="metric-value">${formatTemp(p.nozzle)}</div></div>
-                    <div class="metric"><div class="metric-label">Bed</div><div class="metric-value">${formatTemp(p.bed)}</div></div>
-                  </div>
-                </div>
-              </div>`;
+            if (contentEl.dataset.layoutMode === 'print') {
+              const body = contentEl.querySelector('.print-body');
+              if (body) updatePrintBodyEl(body, p, printOpts);
+            } else {
+              contentEl.innerHTML = renderPrintBody(p, printOpts);
+              contentEl.dataset.layoutMode = 'print';
+            }
           } else {
             card.style.setProperty('--progress', '0%');
             card.style.setProperty('--progress-num', 0);
 
-            if (!p.online) {
-              html = `
-                <div class="idle-box">
-                  <div class="idle-circle">
-                    <svg class="idle-icon" viewBox="0 0 24 24">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-                    </svg>
-                  </div>
-                  <div class="idle-title">No Connection</div>
-                  <div class="idle-subtitle">Check power or network</div>
-                </div>`;
-            } else if (p.state === 'PAUSED') {
-              html = `
-                <div class="idle-box">
-                  <div class="idle-circle">
-                    <svg class="idle-icon" viewBox="0 0 24 24">
-                      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-                    </svg>
-                  </div>
-                  <div class="idle-title">Print Paused</div>
-                  <div class="idle-subtitle">Waiting to resume</div>
-                </div>`;
-            } else {
-              html = `
-                <div class="idle-box">
-                  <div class="idle-circle">
-                    <svg class="idle-icon" viewBox="0 0 24 24">
-                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                    </svg>
-                  </div>
-                  <div class="idle-title">Standby Mode</div>
-                  <div class="idle-subtitle">Ready to print</div>
-                </div>`;
+            if (contentEl.dataset.layoutMode !== contentMode) {
+              contentEl.innerHTML = renderIdleHtml(p);
+              contentEl.dataset.layoutMode = contentMode;
             }
           }
-
-          document.getElementById('content_' + id).innerHTML = html;
 
           const baseOrder = id === 'q2' ? 1 : (id === 'u1' ? 2 : 3);
           card.style.order = (p.online && p.state === 'PRINTING') ? baseOrder : (baseOrder + 3);
