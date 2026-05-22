@@ -1,639 +1,604 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="uk">
 <head>
   <meta charset="UTF-8">
   <title>DASHBOARD</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='9' height='9' fill='%230ea5e9' /%3E%3Crect x='13' y='2' width='9' height='9' fill='%2322c55e' /%3E%3Crect x='2' y='13' width='9' height='9' fill='%23eab308' /%3E%3Crect x='13' y='13' width='9' height='9' fill='%2364748b' /%3E%3C/svg%3E">
-
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
-
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
   <style>
-    @property --progress {
-      syntax: '<percentage>';
-      inherits: true;
-      initial-value: 0%;
+    html, body {
+      height: 100%;
+      overflow: hidden;
     }
-
-    @property --progress-num {
-      syntax: '<number>';
-      inherits: true;
-      initial-value: 0;
-    }
-
-    :root {
-      --bg-color: #050508;
-      --card-bg: #14171f;
-      --panel-bg: #0b0d11;
-      --text-main: #d4dae6;
-      --text-muted: #64748b;
-
-      --clr-q2: #00d2ff;
-      --clr-u1: #f0c028;
-      --clr-p1s: #10b981;
-      --clr-offline: #334155;
-
-      --clr-q2-bg: rgba(0, 210, 255, 0.055);
-      --clr-u1-bg: rgba(240, 192, 40, 0.055);
-      --clr-p1s-bg: rgba(16, 185, 129, 0.055);
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      background-color: var(--bg-color);
-      color: var(--text-main);
-      font-family: 'Rajdhani', sans-serif;
-      font-weight: 500;
-      min-height: 100vh;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      margin: 0;
+      padding: 24px;
+      background: #151516;
+      color: #e8eaed;
       display: flex;
-      flex-direction: column;
       align-items: center;
-      padding: 40px 20px;
+      justify-content: center;
+      box-sizing: border-box;
     }
-
     .dashboard {
-      width: 100%;
-      max-width: 1050px;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 28px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 24px;
+      flex-wrap: wrap;
     }
-
     .card {
-      background-color: var(--card-bg);
-      border: none;
-      border-radius: 3px;
+      width: 280px;
+      background: #0c0c0e;
+      padding: 15px;
+      border-radius: 12px;
+      position: relative;
       display: flex;
       flex-direction: column;
-      min-height: 200px;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
-      position: relative;
-      overflow: hidden;
-      transition: background-color 0.3s;
+      gap: 12px;
     }
 
-    .card:not(.p-printing):hover { background-color: #1c202b; }
-
-    #card_q2 { --printer-clr: var(--clr-q2); --printer-bg-clr: var(--clr-q2-bg); }
-    #card_u1 { --printer-clr: var(--clr-u1); --printer-bg-clr: var(--clr-u1-bg); }
-    #card_p1s { --printer-clr: var(--clr-p1s); --printer-bg-clr: var(--clr-p1s-bg); }
-
-    .card.p-offline { --status-clr: var(--clr-offline); }
-    .card.p-printing, .card.p-ready, .card.p-paused { --status-clr: var(--printer-clr); }
-
-    .card-header, #content_q2, #content_u1, #content_p1s {
-      position: relative;
-      z-index: 1;
-    }
-
-    #content_q2, #content_u1, #content_p1s {
-      display: flex;
-      flex-direction: column;
-      flex-grow: 1;
-    }
-
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 18px;
-      flex-shrink: 0;
-    }
-
-    .card.p-layout-print {
-      min-height: 188px;
-      padding: 0;
-    }
-
-    .card.p-layout-print .card-header {
-      display: none;
-    }
-
-    .card:not(.p-layout-print) {
-      padding: 16px 16px 18px;
-    }
-
-    .printer-title {
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--printer-clr, var(--text-main));
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .card:not(.p-layout-print).p-offline .printer-title { color: var(--text-muted); }
-
-    .status-wrapper {
-      display: flex;
-      align-items: center;
-      flex-shrink: 0;
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      padding: 3px 8px;
-      border-radius: 4px;
-      background: rgba(0, 0, 0, 0.28);
-      color: var(--text-muted);
-    }
-
-    .status-dot { display: none; }
-
-    /* --- PRINTING --- */
-
-    .print-body {
+    .card-main {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 95px;
+      grid-template-columns: minmax(0, 1fr) 4px 80px;
+      gap: 12px;
       align-items: stretch;
-      gap: 10px 0;
-      flex-grow: 1;
-      min-height: 108px;
-      --gap-pct-bar: 16px;
-      --gap-bar-params: 0;
-      --print-rail-w: 4px;
     }
 
-    .print-pct {
-      grid-column: 1;
-      position: relative;
-      align-self: stretch;
+    .card-col-pct {
       min-width: 0;
+      display: flex;
+      flex-direction: column;
+      align-self: stretch;
+    }
+
+    .card-col-pct .card-title {
+      margin-top: auto;
+      padding-top: 8px;
+    }
+
+    .card-rail {
+      width: 4px;
+      align-self: stretch;
+      display: flex;
+      flex-direction: column;
       min-height: 0;
+    }
+
+    .card-rail-track {
+      flex: 1;
+      width: 100%;
+      min-height: 60px;
+      background: #000;
+      border-radius: 2px;
+      position: relative;
       overflow: hidden;
-      background: var(--printer-bg-clr), var(--panel-bg);
     }
 
-    .card.p-offline .print-pct {
-      background: var(--panel-bg);
-    }
-
-    .print-pct::before {
-      content: '';
+    .card-rail-fill {
       position: absolute;
       left: 0;
       right: 0;
       bottom: 0;
       height: calc(100% * var(--progress-num, 0) / 100);
       max-height: 100%;
-      min-height: 3px;
-      background: var(--printer-bg-clr);
-      filter: saturate(1.1) brightness(1.2);
-      z-index: 0;
-      transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      min-height: 0;
+      background: var(--printer-clr, #64748b);
+      border-radius: 2px;
+      transition: height 0.6s ease;
     }
 
-    .print-pct-area {
-      position: relative;
-      z-index: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: space-between;
-      width: 100%;
+    .card-rail-fill.is-full {
       height: 100%;
-      min-height: 100%;
-      padding: 23px calc(var(--gap-pct-bar) + var(--print-rail-w)) 17px 10px;
+    }
+
+    .card-col-params {
+      min-width: 0;
+    }
+
+    .card-params {
+      margin: 0;
+    }
+
+    .card-params dt {
+      margin: 0 0 0px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.35px;
+      color: #64748b;
+    }
+
+    .card-params dd {
+      margin: 0 0 12px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .card-params dd.is-placeholder {
+      color: #64748b;
+      opacity: 0.65;
+    }
+
+    .card-title {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.2;
+      text-align: left;
+      color: var(--title-clr, var(--printer-clr, #e8eaed));
+    }
+
+    .card[data-id="q2"] { --printer-clr: #00d2ff; }
+    .card[data-id="u1"] { --printer-clr: #f0c028; }
+    .card[data-id="p1s"] { --printer-clr: #10b981; }
+
+    .card.p-offline {
+      --state-clr: #94a3b8;
+      --printer-clr: #94a3b8;
+      --state-bg: rgba(148, 163, 184, 0.12);
+      background: #0e0e10;
+    }
+
+    .card.p-offline .card-rail-track {
+      background: rgba(148, 163, 184, 0.18);
+    }
+
+    .card.p-ready {
+      --state-clr: #a78bfa;
+      --state-bg: rgba(167, 139, 250, 0.14);
+      background: #0f0c14;
+    }
+
+    .card.p-paused {
+      --state-clr: #fb923c;
+      --state-bg: rgba(251, 146, 60, 0.14);
+      --title-clr: var(--state-clr);
+      background: #12100c;
+    }
+
+    .card.p-ready .card-rail-track {
+      background: rgba(167, 139, 250, 0.2);
+    }
+
+    .card.p-paused .card-rail-track {
+      background: rgba(251, 146, 60, 0.2);
+    }
+
+    .card-state-standby,
+    .card-state-paused,
+    .card-state-offline {
+      display: none;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: flex-start;
+      align-self: flex-start;
+      width: 100%;
+      gap: 0;
+    }
+
+    .card.p-ready .card-state-standby {
+      display: flex;
+    }
+
+    .card.p-paused .card-state-paused {
+      display: flex;
+    }
+
+    .card.p-offline .card-state-offline {
+      display: flex;
+    }
+
+    .card.p-ready .card-pct-inner,
+    .card.p-paused .card-pct-inner,
+    .card.p-offline .card-pct-inner {
+      display: none;
+    }
+
+    .card-state-circle {
+      width: 56px;
+      height: 56px;
+      border-radius: 10px;
+      border: 3px solid var(--state-clr);
+      background: rgba(0, 0, 0, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--state-clr);
+      flex-shrink: 0;
+    }
+
+    .card-state-icon {
+      width: 28px;
+      height: 28px;
+      fill: currentColor;
+      flex-shrink: 0;
+    }
+
+    .card.p-ready .card-state-circle,
+    .card.p-paused .card-state-circle,
+    .card.p-offline .card-state-circle {
+      width: 143px;
+      height: 108px;
+      flex-direction: column;
+      gap: 6px;
+      padding: 12px 10px;
       box-sizing: border-box;
     }
 
-    .print-pct-block {
-      position: relative;
-      z-index: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: space-between;
-      flex: 1;
-      width: 100%;
-      min-height: 0;
-      text-align: center;
-      gap: 6px;
+    .card.p-ready .card-state-icon,
+    .card.p-paused .card-state-icon,
+    .card.p-offline .card-state-icon {
+      width: 32px;
+      height: 32px;
     }
 
-    .print-pct-name {
-      font-size: 16px;
-      font-weight: 700;
-      color: var(--printer-clr);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      line-height: 1.1;
-      margin-top: -3px;
-      max-width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+    .card.p-offline .card-state-circle {
+      border-color: var(--state-clr);
+      background: rgba(0, 0, 0, 0.35);
+      opacity: 0.92;
     }
 
-    .print-pct-status {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      color: var(--text-muted);
-      line-height: 1;
-      margin-top: 0;
+    .card.p-offline .card-state-label {
+      color: var(--state-clr);
+      letter-spacing: 0.14em;
     }
 
-    .card.p-printing .print-pct-status {
-      margin-top: 12px;
-      padding: 7px 10px 4px;
-      border-radius: 4px;
-      background: var(--panel-bg);
-      animation: status-pulse 2s infinite ease-in-out;
-    }
-
-    .card.p-offline.p-layout-print .print-pct-num {
-      font-size: 56px;
-      font-weight: 600;
-      color: var(--text-muted);
-      letter-spacing: 1px;
-    }
-
-    .card.p-offline.p-layout-print .print-pct-sym {
-      display: none;
-    }
-
-    .print-pct-mid {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0;
-      margin: auto 0;
-    }
-
-    .print-pct-label {
-      margin-top: -4px;
+    .card-state-label {
       font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.45px;
-      text-transform: uppercase;
-      color: var(--text-muted);
+      font-weight: 800;
+      letter-spacing: 0.12em;
       line-height: 1;
+      text-align: center;
     }
 
-    .print-pct-indicator.is-complete + .print-pct-label {
+    .card-pct-paused {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 1px;
+      line-height: 1;
+      color: var(--state-clr);
+    }
+
+    .card-pct-paused-num {
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .card-pct-paused-sym {
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .printer-name {
       display: none;
     }
 
-    @keyframes status-pulse {
-      0%, 100% { opacity: 0.35; }
-      50% { opacity: 1; }
-    }
-
-    .print-params {
-      grid-column: 2;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-start;
-      align-items: stretch;
-      align-self: stretch;
-      gap: 8px;
-      min-width: 0;
-      --params-pad-top: 10px;
-      --params-pad-right: 10px;
-      --params-pad-bottom: 10px;
-      --params-pad-left: 10px;
-      padding: var(--params-pad-top) var(--params-pad-right) 0 var(--params-pad-left);
-      background: var(--panel-bg);
-      border-radius: 0;
-    }
-
-    .print-rail {
-      position: absolute;
-      top: 0;
-      right: 0;
-      bottom: 0;
-      width: var(--print-rail-w);
-      z-index: 2;
-      display: flex;
-      min-height: 0;
-      background: #000000;
-      overflow: hidden;
-    }
-
-    .print-rail-track {
+    .card-pct {
+      margin: 0;
       flex: 1;
-      width: 100%;
-      min-height: 0;
-      position: relative;
-      background: #000000;
-      overflow: hidden;
-    }
-
-    .print-rail-fill {
-      position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      height: calc(100% * var(--progress-num, 0) / 100);
-      max-height: 100%;
-      min-height: 3px;
-      background: var(--printer-clr);
-      transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .print-rail-fill.is-full {
-      height: 100%;
-    }
-
-    .print-pct-indicator {
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 76px;
+      min-height: 0;
     }
 
-    .print-pct-value {
-      display: flex;
-      justify-content: center;
+    .card.p-ready .card-pct,
+    .card.p-paused .card-pct,
+    .card.p-printing .card-pct,
+    .card.p-offline .card-pct {
       align-items: flex-start;
-      width: 100%;
-      margin: 0;
+      justify-content: flex-start;
     }
 
-    .print-pct-value-inner {
+    .card-pct-inner {
       position: relative;
       display: inline-block;
-      line-height: 0.95;
+      line-height: 0.9;
+      align-self: flex-start;
     }
 
-    .print-pct-num {
-      display: block;
+    .card-num {
       font-size: 80px;
-      font-weight: 600;
-      color: var(--text-main);
-      line-height: 0.95;
-      letter-spacing: 0;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 0.9;
     }
 
-    .print-pct-sym {
+    .card-sym {
       position: absolute;
       left: 100%;
-      top: 5px;
+      top: 0;
       margin-left: 0;
-      font-size: 30px;
-      font-weight: 600;
-      color: var(--text-main);
+      margin-top: 3px;
+      font-size: 32px;
+      font-weight: 700;
       line-height: 1;
-      white-space: nowrap;
-      pointer-events: none;
     }
 
-    .print-pct-done {
-      display: none;
-      align-items: center;
-      justify-content: center;
+    /* Surface (3:2, Windows, HiDPI) — +15% */
+    body.device-surface {
+      padding: 28px;
     }
 
-    .print-pct-indicator.is-complete .print-pct-value {
-      display: none;
+    body.device-surface .dashboard {
+      gap: 28px;
     }
 
-    .print-pct-indicator.is-complete .print-pct-done {
-      display: flex;
+    body.device-surface .card {
+      width: 310px;
+      padding: 17px;
+      border-radius: 14px;
+      gap: 14px;
     }
 
-    .print-pct-done-circle {
-      width: 72px;
-      height: 72px;
-      border-radius: 50%;
-      border: 2px solid var(--printer-clr);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--printer-clr);
+    body.device-surface .card-main {
+      grid-template-columns: minmax(0, 1fr) 5px 92px;
+      gap: 14px;
     }
 
-    .print-pct-done-icon {
-      width: 34px;
-      height: 34px;
-      fill: currentColor;
+    body.device-surface .card-rail {
+      width: 5px;
     }
 
-    .params-group {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
+    body.device-surface .card-rail-track {
+      min-height: 69px;
     }
 
-    .params-temp-wrap {
-      display: flex;
-      flex-direction: column;
-      gap: 0;
-      margin-top: auto;
-      margin-left: calc(-1 * var(--params-pad-left));
-      margin-right: calc(-1 * var(--params-pad-right));
+    body.device-surface .card-params dt {
+      font-size: 12px;
     }
 
-    .params-divider {
-      flex-shrink: 0;
-      height: 4px;
-      background: #000000;
-    }
-
-    .params-group--temp {
-      flex-grow: 0;
-      margin: 0;
-      padding: 10px var(--params-pad-right) var(--params-pad-bottom) var(--params-pad-left);
-      border-radius: 0;
-      background: rgba(249, 115, 22, 0.12);
-    }
-
-    .metric {
-      display: flex;
-      flex-direction: column;
-      gap: 0;
-      align-items: flex-start;
-      text-align: left;
-      line-height: 1.15;
-      width: 100%;
-    }
-
-    .metric-label {
-      font-size: 10px;
-      color: var(--text-muted);
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.45px;
-      white-space: nowrap;
-    }
-
-    .metric-value {
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--text-main);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 100%;
-    }
-
-    .params-group--job .metric-value.is-placeholder {
-      color: var(--text-muted);
-      opacity: 0.63;
-    }
-
-    .params-group--temp .metric-value {
+    body.device-surface .card-params dd {
       font-size: 16px;
+      margin-bottom: 14px;
     }
 
-    /* --- IDLE --- */
-
-    .idle-box {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      flex-grow: 1;
-      padding: 8px 0 4px;
+    body.device-surface .card-col-pct .card-title {
+      font-size: 16px;
+      padding-top: 9px;
     }
 
-    .idle-circle {
+    body.device-surface .card-state-circle {
       width: 64px;
       height: 64px;
-      border-radius: 50%;
-      background: rgba(0, 0, 0, 0.2);
-      border: 2px solid var(--status-clr);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 14px;
-      color: var(--status-clr);
     }
 
-    .card.p-ready .idle-circle, .card.p-paused .idle-circle {
-      animation: breathe 2.5s infinite ease-in-out;
+    body.device-surface .card.p-ready .card-state-circle,
+    body.device-surface .card.p-paused .card-state-circle,
+    body.device-surface .card.p-offline .card-state-circle {
+      width: 159px;
+      height: 124px;
+      padding: 14px 11px;
+      gap: 7px;
     }
 
-    @keyframes breathe {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.03); box-shadow: 0 0 16px rgba(0, 0, 0, 0.25); }
+    body.device-surface .card.p-ready .card-state-icon,
+    body.device-surface .card.p-paused .card-state-icon,
+    body.device-surface .card.p-offline .card-state-icon {
+      width: 37px;
+      height: 37px;
     }
 
-    .idle-icon { width: 28px; height: 28px; fill: currentColor; }
+    body.device-surface .card-state-label {
+      font-size: 11px;
+    }
 
-    .idle-title {
+    body.device-surface .card-state-icon {
+      width: 32px;
+      height: 32px;
+    }
+
+    body.device-surface .card-pct-paused-num {
       font-size: 16px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 2px;
-      text-align: center;
-    }
-    .card.p-ready .idle-title, .card.p-paused .idle-title { color: var(--text-main); }
-    .card.p-offline .idle-title { color: var(--text-muted); }
-
-    .idle-subtitle {
-      font-size: 13px;
-      color: var(--text-muted);
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
-      text-align: center;
     }
 
-    @media (min-width: 961px) {
-      body { justify-content: center; }
+    body.device-surface .card-pct-paused-sym {
+      font-size: 11px;
     }
 
-    @media (max-width: 960px) {
-      .dashboard { grid-template-columns: 1fr; gap: 16px; max-width: 480px; }
-      body { padding: 20px 16px; }
+    body.device-surface .card-num {
+      font-size: 92px;
     }
 
-    @media (max-width: 400px) {
-      .print-body {
-        grid-template-columns: minmax(0, 1fr) 95px;
-        gap: 8px 0;
-        --print-rail-w: 3px;
-      }
-      .print-pct-num { font-size: clamp(72px, 22vw, 120px); }
-      .print-pct-value { margin-bottom: -4px; }
+    body.device-surface .card-sym {
+      font-size: 37px;
+      margin-top: 4px;
     }
 
-    body.device-surface { padding: 46px 24px; }
-    body.device-surface .dashboard { max-width: 1250px; gap: 32px; }
-    body.device-surface .card:not(.p-layout-print) { padding: 20px 20px 22px; }
-    body.device-surface .card { min-height: 228px; }
-    body.device-surface .card.p-layout-print { padding: 0; min-height: 208px; }
-    body.device-surface .printer-title { font-size: 21px; }
-    body.device-surface .status-wrapper { font-size: 14px; padding: 5px 12px; }
-    body.device-surface .print-pct-num { font-size: 100px; }
-    body.device-surface .print-pct-indicator { min-height: 96px; }
-    body.device-surface .print-pct-done-circle { width: 88px; height: 88px; }
-    body.device-surface .print-pct-done-icon { width: 40px; height: 40px; }
-    body.device-surface .print-pct-name { font-size: 18px; }
-    body.device-surface .print-pct-status { font-size: 13px; }
-    body.device-surface .print-params {
-      --params-pad-top: 10px;
-      --params-pad-right: 23px;
-      --params-pad-bottom: 10px;
-      --params-pad-left: 10px;
-      padding: var(--params-pad-top) var(--params-pad-right) 0 var(--params-pad-left);
-    }
-    body.device-surface .print-body {
-      min-height: 118px;
-      gap: 10px 0;
-      grid-template-columns: minmax(0, 1fr) 105px;
-      --print-rail-w: 5px;
-    }
-    body.device-surface .metric-label { font-size: 12px; }
-    body.device-surface .metric-value { font-size: 18px; }
-    body.device-surface .params-group--temp .metric-value { font-size: 20px; }
-    body.device-surface .idle-circle { width: 74px; height: 74px; }
-    body.device-surface .idle-icon { width: 34px; height: 34px; }
-    body.device-surface .idle-title { font-size: 19px; }
-    body.device-surface .idle-subtitle { font-size: 15px; }
   </style>
 </head>
 <body>
 
   <div class="dashboard">
-    <div id="card_q2" class="card p-offline">
-      <div class="card-header">
-        <div class="printer-title">QIDI Q2</div>
-        <div class="status-wrapper"><div class="status-dot"></div><span id="state_q2">OFFLINE</span></div>
+    <article id="card_q2" class="card" data-id="q2">
+      <h2 class="printer-name">QIDI Q2</h2>
+      <div class="card-main">
+        <div class="card-col-pct">
+          <div class="card-pct">
+            <span class="card-pct-inner">
+              <span class="card-num" data-field="progress-num">—</span>
+              <span class="card-sym">%</span>
+            </span>
+            <div class="card-state-standby" aria-label="Standby">
+              <div class="card-state-circle">
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+                <span class="card-state-label">STANDBY</span>
+              </div>
+            </div>
+            <div class="card-state-paused" aria-label="Paused">
+              <div class="card-state-circle">
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                </svg>
+                <div class="card-pct-paused">
+                  <span class="card-pct-paused-num" data-field="progress-paused">0</span>
+                  <span class="card-pct-paused-sym">%</span>
+                </div>
+              </div>
+            </div>
+            <div class="card-state-offline" aria-label="Offline">
+              <div class="card-state-circle">
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                </svg>
+                <span class="card-state-label">OFFLINE</span>
+              </div>
+            </div>
+          </div>
+          <div class="card-title">QIDI Q2</div>
+        </div>
+        <div class="card-rail" aria-hidden="true">
+          <div class="card-rail-track">
+            <div class="card-rail-fill"></div>
+          </div>
+        </div>
+        <div class="card-col-params">
+          <dl class="card-params">
+            <dt>Remaining</dt><dd data-field="remaining">—</dd>
+            <dt>Estimated</dt><dd data-field="estimated">—</dd>
+            <dt>Layer</dt><dd data-field="layer">—</dd>
+            <dt>Nozzle</dt><dd data-field="nozzle">—</dd>
+            <dt>Bed</dt><dd data-field="bed">—</dd>
+          </dl>
+        </div>
       </div>
-      <div id="content_q2"></div>
-    </div>
+    </article>
 
-    <div id="card_u1" class="card p-offline">
-      <div class="card-header">
-        <div class="printer-title">Snapmaker U1</div>
-        <div class="status-wrapper"><div class="status-dot"></div><span id="state_u1">OFFLINE</span></div>
+    <article id="card_u1" class="card" data-id="u1">
+      <h2 class="printer-name">Snapmaker U1</h2>
+      <div class="card-main">
+        <div class="card-col-pct">
+          <div class="card-pct">
+            <span class="card-pct-inner">
+              <span class="card-num" data-field="progress-num">—</span>
+              <span class="card-sym">%</span>
+            </span>
+            <div class="card-state-standby" aria-label="Standby">
+              <div class="card-state-circle">
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+                <span class="card-state-label">STANDBY</span>
+              </div>
+            </div>
+            <div class="card-state-paused" aria-label="Paused">
+              <div class="card-state-circle">
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                </svg>
+                <div class="card-pct-paused">
+                  <span class="card-pct-paused-num" data-field="progress-paused">0</span>
+                  <span class="card-pct-paused-sym">%</span>
+                </div>
+              </div>
+            </div>
+            <div class="card-state-offline" aria-label="Offline">
+              <div class="card-state-circle">
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                </svg>
+                <span class="card-state-label">OFFLINE</span>
+              </div>
+            </div>
+          </div>
+          <div class="card-title">Snapmaker U1</div>
+        </div>
+        <div class="card-rail" aria-hidden="true">
+          <div class="card-rail-track">
+            <div class="card-rail-fill"></div>
+          </div>
+        </div>
+        <div class="card-col-params">
+          <dl class="card-params">
+            <dt>Remaining</dt><dd data-field="remaining">—</dd>
+            <dt>Estimated</dt><dd data-field="estimated">—</dd>
+            <dt>Layer</dt><dd data-field="layer">—</dd>
+            <dt>Nozzle</dt><dd data-field="nozzle">—</dd>
+            <dt>Bed</dt><dd data-field="bed">—</dd>
+          </dl>
+        </div>
       </div>
-      <div id="content_u1"></div>
-    </div>
+    </article>
 
-    <div id="card_p1s" class="card p-offline">
-      <div class="card-header">
-        <div class="printer-title">Bambu Lab P1S</div>
-        <div class="status-wrapper"><div class="status-dot"></div><span id="state_p1s">OFFLINE</span></div>
+    <article id="card_p1s" class="card" data-id="p1s">
+      <h2 class="printer-name">Bambu Lab P1S</h2>
+      <div class="card-main">
+        <div class="card-col-pct">
+          <div class="card-pct">
+            <span class="card-pct-inner">
+              <span class="card-num" data-field="progress-num">—</span>
+              <span class="card-sym">%</span>
+            </span>
+            <div class="card-state-standby" aria-label="Standby">
+              <div class="card-state-circle">
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+                <span class="card-state-label">STANDBY</span>
+              </div>
+            </div>
+            <div class="card-state-paused" aria-label="Paused">
+              <div class="card-state-circle">
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                </svg>
+                <div class="card-pct-paused">
+                  <span class="card-pct-paused-num" data-field="progress-paused">0</span>
+                  <span class="card-pct-paused-sym">%</span>
+                </div>
+              </div>
+            </div>
+            <div class="card-state-offline" aria-label="Offline">
+              <div class="card-state-circle">
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                </svg>
+                <span class="card-state-label">OFFLINE</span>
+              </div>
+            </div>
+          </div>
+          <div class="card-title">Bambu Lab P1S</div>
+        </div>
+        <div class="card-rail" aria-hidden="true">
+          <div class="card-rail-track">
+            <div class="card-rail-fill"></div>
+          </div>
+        </div>
+        <div class="card-col-params">
+          <dl class="card-params">
+            <dt>Remaining</dt><dd data-field="remaining">—</dd>
+            <dt>Estimated</dt><dd data-field="estimated">—</dd>
+            <dt>Layer</dt><dd data-field="layer">—</dd>
+            <dt>Nozzle</dt><dd data-field="nozzle">—</dd>
+            <dt>Bed</dt><dd data-field="bed">—</dd>
+          </dl>
+        </div>
       </div>
-      <div id="content_p1s"></div>
-    </div>
+    </article>
   </div>
 
   <script>
-    document.addEventListener("DOMContentLoaded", function() {
+    document.addEventListener('DOMContentLoaded', function() {
       const isWindows = /Win/i.test(navigator.platform) || /Windows/i.test(navigator.userAgent);
       const screenRatio = window.screen.width / window.screen.height;
       const isAspectRatio32 = Math.abs(screenRatio - 1.5) < 0.05;
       const isHighDPI = window.devicePixelRatio >= 1.5;
-
       if (isWindows && isAspectRatio32 && isHighDPI) {
         document.body.classList.add('device-surface');
       }
     });
+
+    const JOB_PLACEHOLDER = '--:--';
 
     const cloudBroker = 'm0722111.ala.eu-central-1.emqxsl.com';
     const cloudPort = 8084;
@@ -657,48 +622,7 @@
         const d = new Date(Date.now() + p.remSec * 1000);
         return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
       }
-      return '--:--';
-    }
-
-    const JOB_PLACEHOLDER = '--:--';
-
-    function jobMetricValueHtml(value) {
-      const ph = value === JOB_PLACEHOLDER;
-      return `<div class="metric-value${ph ? ' is-placeholder' : ''}">${value}</div>`;
-    }
-
-    function setJobMetricValue(el, value) {
-      el.textContent = value;
-      el.classList.toggle('is-placeholder', value === JOB_PLACEHOLDER);
-    }
-
-    function renderPrintParams(p, active) {
-      const remaining = active ? (p.remaining || JOB_PLACEHOLDER) : JOB_PLACEHOLDER;
-      const estimated = active ? formatEstimated(p) : JOB_PLACEHOLDER;
-      const layer = active ? (p.layer || JOB_PLACEHOLDER) : JOB_PLACEHOLDER;
-      return `
-                  <div class="params-group params-group--job">
-                    <div class="metric"><div class="metric-label">Remaining</div>${jobMetricValueHtml(remaining)}</div>
-                    <div class="metric"><div class="metric-label">Estimated</div>${jobMetricValueHtml(estimated)}</div>
-                    <div class="metric"><div class="metric-label">Layer</div>${jobMetricValueHtml(layer)}</div>
-                  </div>
-                  <div class="params-temp-wrap">
-                    <div class="params-divider" aria-hidden="true"></div>
-                    <div class="params-group params-group--temp">
-                      <div class="metric"><div class="metric-label">Nozzle</div><div class="metric-value">${formatTemp(p.nozzle)}</div></div>
-                      <div class="metric"><div class="metric-label">Bed</div><div class="metric-value">${formatTemp(p.bed)}</div></div>
-                    </div>
-                  </div>`;
-    }
-
-    function isPrintComplete(progress, jobActive, online) {
-      if (!online) return false;
-      return !jobActive || progress >= 100;
-    }
-
-    function getFillProgress(progress, jobActive, online) {
-      if (!online) return 0;
-      return isPrintComplete(progress, jobActive, online) ? 100 : progress;
+      return JOB_PLACEHOLDER;
     }
 
     function getStatusText(p) {
@@ -707,211 +631,92 @@
       return p.state;
     }
 
-    function renderPrintBody(p, opts) {
-      const { progress, printerName, statusText, jobActive, online } = opts;
-      const complete = isPrintComplete(progress, jobActive, online);
-      const pctText = online ? progress : '--';
-      return `
-              <div class="print-body">
-                <div class="print-pct">
-                  <div class="print-pct-area">
-                    <div class="print-pct-block">
-                      <div class="print-pct-name">${printerName}</div>
-                      <div class="print-pct-mid">
-                        <div class="print-pct-indicator${complete ? ' is-complete' : ''}">
-                          <div class="print-pct-value">
-                            <span class="print-pct-value-inner">
-                              <span class="print-pct-num">${pctText}</span>
-                              <span class="print-pct-sym" aria-hidden="true">%</span>
-                            </span>
-                          </div>
-                          <div class="print-pct-done" aria-hidden="true">
-                            <div class="print-pct-done-circle">
-                              <svg class="print-pct-done-icon" viewBox="0 0 24 24">
-                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                              </svg>
-                            </div>
-                          </div>
-                        </div>
-                        <div class="print-pct-label">PROGRESS</div>
-                      </div>
-                      <div class="print-pct-status">${statusText}</div>
-                    </div>
-                  </div>
-                  <div class="print-rail" aria-hidden="true">
-                    <div class="print-rail-track">
-                      <div class="print-rail-fill${progress >= 100 ? ' is-full' : ''}"></div>
-                    </div>
-                  </div>
-                </div>
-                <div class="print-params" data-job-active="${jobActive}">${renderPrintParams(p, jobActive)}</div>
-              </div>`;
-    }
-
-    function updatePrintParamsEl(paramsEl, p, active) {
-      const jobValues = paramsEl.querySelectorAll('.params-group--job .metric-value');
-      if (jobValues.length >= 3) {
-        setJobMetricValue(jobValues[0], active ? (p.remaining || JOB_PLACEHOLDER) : JOB_PLACEHOLDER);
-        setJobMetricValue(jobValues[1], active ? formatEstimated(p) : JOB_PLACEHOLDER);
-        setJobMetricValue(jobValues[2], active ? (p.layer || JOB_PLACEHOLDER) : JOB_PLACEHOLDER);
-      }
-      const tempValues = paramsEl.querySelectorAll('.params-group--temp .metric-value');
-      if (tempValues.length >= 2) {
-        tempValues[0].textContent = formatTemp(p.nozzle);
-        tempValues[1].textContent = formatTemp(p.bed);
-      }
-    }
-
-    function ensurePctValueStructure(valueEl) {
-      if (!valueEl || valueEl.querySelector('.print-pct-value-inner')) return;
-      const num = valueEl.querySelector('.print-pct-num');
-      if (!num) return;
-      const inner = document.createElement('span');
-      inner.className = 'print-pct-value-inner';
-      let sym = valueEl.querySelector('.print-pct-sym');
-      valueEl.insertBefore(inner, num);
-      inner.appendChild(num);
-      if (!sym) {
-        sym = document.createElement('span');
-        sym.className = 'print-pct-sym';
-        sym.setAttribute('aria-hidden', 'true');
-        sym.textContent = '%';
-      }
-      inner.appendChild(sym);
-    }
-
-    function updatePrintBodyEl(body, p, opts) {
-      const { progress, printerName, statusText, jobActive, online } = opts;
-      const complete = isPrintComplete(progress, jobActive, online);
-      const fillProgress = getFillProgress(progress, jobActive, online);
-      body.querySelector('.print-pct-name').textContent = printerName;
-      ensurePctValueStructure(body.querySelector('.print-pct-value'));
-      const numEl = body.querySelector('.print-pct-num');
-      const symEl = body.querySelector('.print-pct-sym');
-      if (numEl) numEl.textContent = online ? progress : '--';
-      if (symEl) symEl.hidden = !online;
-      body.querySelector('.print-pct-status').textContent = statusText;
-      const indicator = body.querySelector('.print-pct-indicator');
-      if (indicator) indicator.classList.toggle('is-complete', complete);
-      const fill = body.querySelector('.print-rail-fill');
-      if (fill) fill.classList.toggle('is-full', fillProgress >= 100);
-      const paramsEl = body.querySelector('.print-params');
-      if (paramsEl.dataset.jobActive !== String(jobActive)) {
-        paramsEl.dataset.jobActive = String(jobActive);
-        paramsEl.innerHTML = renderPrintParams(p, jobActive);
-      } else {
-        updatePrintParamsEl(paramsEl, p, jobActive);
-      }
-    }
-
-    function renderIdleHtml(p) {
-      if (!p.online) {
-        return `
-                <div class="idle-box">
-                  <div class="idle-circle">
-                    <svg class="idle-icon" viewBox="0 0 24 24">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-                    </svg>
-                  </div>
-                  <div class="idle-title">No Connection</div>
-                  <div class="idle-subtitle">Check power or network</div>
-                </div>`;
-      }
-      if (p.state === 'PAUSED') {
-        return `
-                <div class="idle-box">
-                  <div class="idle-circle">
-                    <svg class="idle-icon" viewBox="0 0 24 24">
-                      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-                    </svg>
-                  </div>
-                  <div class="idle-title">Print Paused</div>
-                  <div class="idle-subtitle">Waiting to resume</div>
-                </div>`;
-      }
-      return `
-                <div class="idle-box">
-                  <div class="idle-circle">
-                    <svg class="idle-icon" viewBox="0 0 24 24">
-                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                    </svg>
-                  </div>
-                  <div class="idle-title">Standby Mode</div>
-                  <div class="idle-subtitle">Ready to print</div>
-                </div>`;
-    }
-
     function getContentMode(p) {
       if (!p.online || (p.online && (p.state === 'PRINTING' || p.state === 'READY'))) return 'print';
       if (p.state === 'PAUSED') return 'idle-paused';
       return 'idle-standby';
     }
 
+    function setField(card, name, value) {
+      const el = card.querySelector('[data-field="' + name + '"]');
+      if (!el) return;
+      el.textContent = value;
+      if (name === 'remaining' || name === 'estimated' || name === 'layer') {
+        el.classList.toggle('is-placeholder', value === JOB_PLACEHOLDER);
+      }
+    }
+
+    function getFillProgress(p) {
+      if (!p.online) return 0;
+      if (p.state === 'PRINTING' || p.state === 'PAUSED') {
+        return Math.min(100, Math.max(0, Number(p.progress) || 0));
+      }
+      return 0;
+    }
+
+    function updateCard(card, p) {
+      const fillProgress = getFillProgress(p);
+      card.style.setProperty('--progress-num', fillProgress);
+      const railFill = card.querySelector('.card-rail-fill');
+      if (railFill) railFill.classList.toggle('is-full', fillProgress >= 100);
+
+      const jobActive = p.online && p.state === 'PRINTING';
+      const progress = jobActive
+        ? Math.min(100, Math.max(0, Number(p.progress) || 0))
+        : (p.online && p.state === 'READY' ? 0 : '—');
+
+      const remaining = jobActive ? (p.remaining || JOB_PLACEHOLDER) : JOB_PLACEHOLDER;
+      const estimated = jobActive ? formatEstimated(p) : JOB_PLACEHOLDER;
+      const layer = jobActive ? (p.layer || JOB_PLACEHOLDER) : JOB_PLACEHOLDER;
+
+      const numEl = card.querySelector('[data-field="progress-num"]');
+      const symEl = card.querySelector('.card-sym');
+      const pausedNumEl = card.querySelector('[data-field="progress-paused"]');
+
+      if (p.online && p.state === 'PAUSED' && pausedNumEl) {
+        pausedNumEl.textContent = Math.min(100, Math.max(0, Number(p.progress) || 0));
+      }
+
+      if (!(p.online && (p.state === 'READY' || p.state === 'PAUSED'))) {
+        const displayNum = p.online ? (jobActive ? progress : '—') : '—';
+        if (numEl) numEl.textContent = displayNum;
+        if (symEl) symEl.hidden = !p.online;
+      }
+
+      setField(card, 'remaining', remaining);
+      setField(card, 'estimated', estimated);
+      setField(card, 'layer', layer);
+      setField(card, 'nozzle', formatTemp(p.nozzle));
+      setField(card, 'bed', formatTemp(p.bed));
+
+      const titleEl = card.querySelector('.card-title');
+      if (titleEl) titleEl.textContent = card.querySelector('.printer-name').textContent;
+
+      card.dataset.mode = getContentMode(p);
+      card.dataset.jobActive = jobActive ? '1' : '0';
+
+      const baseOrder = card.dataset.id === 'q2' ? 1 : (card.dataset.id === 'u1' ? 2 : 3);
+      card.style.order = (p.online && p.state === 'PRINTING') ? baseOrder : (baseOrder + 3);
+    }
+
     mqtt.onMessageArrived = (message) => {
       try {
         const data = JSON.parse(message.payloadString);
-
         Object.keys(data).forEach(id => {
           const p = data[id];
           const card = document.getElementById('card_' + id);
-          const stateEl = document.getElementById('state_' + id);
-          if (!card || !stateEl) return;
-
-          const statusText = getStatusText(p);
-          stateEl.innerText = statusText;
+          if (!card) return;
 
           const stateClass = !p.online
             ? 'p-offline'
             : (p.state === 'PRINTING' ? 'p-printing' : (p.state === 'PAUSED' ? 'p-paused' : (p.state === 'READY' ? 'p-ready' : 'p-offline')));
-          const showPrintLayout = !p.online || p.state === 'PRINTING' || p.state === 'READY';
-          card.className = 'card ' + stateClass + (showPrintLayout ? ' p-layout-print' : '');
+          card.className = 'card ' + stateClass;
 
-          const contentEl = document.getElementById('content_' + id);
-          const printerName = card.querySelector('.printer-title').textContent;
-          const contentMode = getContentMode(p);
-
-          if (contentMode === 'print') {
-            const jobActive = p.online && p.state === 'PRINTING';
-            const progress = jobActive
-              ? Math.min(100, Math.max(0, Number(p.progress) || 0))
-              : 0;
-            const fillProgress = getFillProgress(progress, jobActive, p.online);
-            const printOpts = {
-              progress,
-              printerName,
-              statusText,
-              jobActive,
-              online: p.online
-            };
-            card.style.setProperty('--progress', fillProgress + '%');
-            card.style.setProperty('--progress-num', fillProgress);
-
-            if (contentEl.dataset.layoutMode === 'print') {
-              const body = contentEl.querySelector('.print-body');
-              if (body && body.querySelector('.print-pct-area')) {
-                updatePrintBodyEl(body, p, printOpts);
-              } else {
-                contentEl.innerHTML = renderPrintBody(p, printOpts);
-                contentEl.dataset.layoutMode = 'print';
-              }
-            } else {
-              contentEl.innerHTML = renderPrintBody(p, printOpts);
-              contentEl.dataset.layoutMode = 'print';
-            }
-          } else {
-            card.style.setProperty('--progress', '0%');
-            card.style.setProperty('--progress-num', 0);
-
-            if (contentEl.dataset.layoutMode !== contentMode) {
-              contentEl.innerHTML = renderIdleHtml(p);
-              contentEl.dataset.layoutMode = contentMode;
-            }
-          }
-
-          const baseOrder = id === 'q2' ? 1 : (id === 'u1' ? 2 : 3);
-          card.style.order = (p.online && p.state === 'PRINTING') ? baseOrder : (baseOrder + 3);
+          updateCard(card, p);
         });
-      } catch (e) { console.error(e); }
+      } catch (e) {
+        console.error(e);
+      }
     };
 
     function connectMQTT() {
