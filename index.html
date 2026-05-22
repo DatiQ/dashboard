@@ -633,10 +633,60 @@
     const cloudPass = 'fdfkjy';
     const cloudTopic = 'my_printers/data';
 
+    const PRINTER_IDS = ['q2', 'u1', 'p1s'];
+    const MAX_DATA_ATTEMPTS = 3;
+    const DATA_ATTEMPT_MS = 5000;
+
     const clientId = 'web_dashboard_' + Math.random().toString(16).substr(2, 8);
     const mqtt = new Paho.MQTT.Client(cloudBroker, cloudPort, clientId);
 
-    mqtt.onConnectionLost = () => { setTimeout(connectMQTT, 2000); };
+    let mqttConnected = false;
+    let gotDataThisCycle = false;
+    let dataAttemptTimer = null;
+    const lastPrinterData = {};
+    const printerFailAttempts = Object.fromEntries(PRINTER_IDS.map(id => [id, 0]));
+
+    function stopDataAttempts() {
+      if (dataAttemptTimer) {
+        clearInterval(dataAttemptTimer);
+        dataAttemptTimer = null;
+      }
+    }
+
+    function registerDataMiss(ids) {
+      ids.forEach(id => {
+        printerFailAttempts[id]++;
+        if (printerFailAttempts[id] >= MAX_DATA_ATTEMPTS) {
+          setPrinterOffline(id);
+        }
+      });
+    }
+
+    function resetDataMiss(id) {
+      printerFailAttempts[id] = 0;
+    }
+
+    function startDataAttempts() {
+      stopDataAttempts();
+      dataAttemptTimer = setInterval(() => {
+        if (!mqttConnected) return;
+        if (!gotDataThisCycle) {
+          registerDataMiss(PRINTER_IDS);
+        }
+        gotDataThisCycle = false;
+      }, DATA_ATTEMPT_MS);
+    }
+
+    function recordConnectFailure() {
+      registerDataMiss(PRINTER_IDS);
+    }
+
+    mqtt.onConnectionLost = () => {
+      mqttConnected = false;
+      stopDataAttempts();
+      recordConnectFailure();
+      setTimeout(connectMQTT, 2000);
+    };
 
     function formatTemp(value) {
       const temp = Number(value);
@@ -679,6 +729,31 @@
         return Math.min(100, Math.max(0, Number(p.progress) || 0));
       }
       return 0;
+    }
+
+    function getStateClass(p) {
+      if (!p.online) return 'p-offline';
+      if (p.state === 'PRINTING') return 'p-printing';
+      if (p.state === 'PAUSED') return 'p-paused';
+      if (p.state === 'READY') return 'p-ready';
+      return 'p-offline';
+    }
+
+    function setPrinterOffline(id) {
+      const card = document.getElementById('card_' + id);
+      if (!card) return;
+      const p = Object.assign({}, lastPrinterData[id] || {}, { online: false, state: 'OFFLINE' });
+      card.className = 'card p-offline';
+      updateCard(card, p);
+    }
+
+    function applyPrinterData(id, raw) {
+      const card = document.getElementById('card_' + id);
+      if (!card) return;
+      lastPrinterData[id] = raw;
+      const p = raw;
+      card.className = 'card ' + getStateClass(p);
+      updateCard(card, p);
     }
 
     function updateCard(card, p) {
@@ -728,21 +803,19 @@
 
     mqtt.onMessageArrived = (message) => {
       try {
+        gotDataThisCycle = true;
         const data = JSON.parse(message.payloadString);
-        Object.keys(data).forEach(id => {
-          const p = data[id];
-          const card = document.getElementById('card_' + id);
-          if (!card) return;
-
-          const stateClass = !p.online
-            ? 'p-offline'
-            : (p.state === 'PRINTING' ? 'p-printing' : (p.state === 'PAUSED' ? 'p-paused' : (p.state === 'READY' ? 'p-ready' : 'p-offline')));
-          card.className = 'card ' + stateClass;
-
-          updateCard(card, p);
+        PRINTER_IDS.forEach(id => {
+          if (data[id]) {
+            resetDataMiss(id);
+            applyPrinterData(id, data[id]);
+          } else {
+            registerDataMiss([id]);
+          }
         });
       } catch (e) {
         console.error(e);
+        recordConnectFailure();
       }
     };
 
@@ -751,8 +824,19 @@
         useSSL: true,
         userName: cloudUser,
         password: cloudPass,
-        onSuccess: () => { mqtt.subscribe(cloudTopic); },
-        onFailure: () => { setTimeout(connectMQTT, 2000); }
+        onSuccess: () => {
+          mqttConnected = true;
+          PRINTER_IDS.forEach(resetDataMiss);
+          gotDataThisCycle = false;
+          mqtt.subscribe(cloudTopic);
+          startDataAttempts();
+        },
+        onFailure: () => {
+          mqttConnected = false;
+          stopDataAttempts();
+          recordConnectFailure();
+          setTimeout(connectMQTT, 2000);
+        }
       });
     }
 
