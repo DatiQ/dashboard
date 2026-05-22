@@ -180,11 +180,13 @@
     .card-state-paused,
     .card-state-offline {
       display: none;
+      flex: 1;
       flex-direction: column;
-      align-items: flex-start;
-      justify-content: flex-start;
-      align-self: flex-start;
+      align-items: stretch;
+      justify-content: stretch;
+      align-self: stretch;
       width: 100%;
+      min-height: 0;
       gap: 0;
     }
 
@@ -210,8 +212,8 @@
       width: 56px;
       height: 56px;
       border-radius: 10px;
-      border: 3px solid var(--state-clr);
-      background: rgba(0, 0, 0, 0.25);
+      border: none;
+      background: var(--state-bg, rgba(0, 0, 0, 0.25));
       display: flex;
       align-items: center;
       justify-content: center;
@@ -229,25 +231,60 @@
     .card.p-ready .card-state-circle,
     .card.p-paused .card-state-circle,
     .card.p-offline .card-state-circle {
-      width: 143px;
-      height: 108px;
+      position: relative;
+      width: 100%;
+      height: 100%;
+      flex: 1;
+      min-height: 0;
       flex-direction: column;
-      gap: 6px;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
       padding: 12px 10px;
       box-sizing: border-box;
+      background: var(--state-bg);
     }
 
-    .card.p-ready .card-state-icon,
-    .card.p-paused .card-state-icon,
-    .card.p-offline .card-state-icon {
-      width: 32px;
-      height: 32px;
+    .card.p-paused .card-pct-corner {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 2;
+      display: flex;
+      align-items: flex-start;
+      gap: 2px;
+      line-height: 1;
+      color: var(--state-clr);
     }
 
-    .card.p-offline .card-state-circle {
-      border-color: var(--state-clr);
-      background: rgba(0, 0, 0, 0.35);
-      opacity: 0.92;
+    .card.p-paused .card-pct-corner .card-pct-paused-num {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+
+    .card.p-paused .card-pct-corner .card-pct-paused-sym {
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1;
+      margin-top: 5px;
+    }
+
+    .card.p-ready .card-state-circle .card-state-icon,
+    .card.p-paused .card-state-circle .card-state-icon,
+    .card.p-offline .card-state-circle .card-state-icon {
+      position: static;
+      transform: none;
+      width: 58px;
+      height: 58px;
+      flex-shrink: 0;
+    }
+
+    .card-state-circle .card-state-label {
+      flex-shrink: 0;
+      padding: 0;
+      text-align: center;
     }
 
     .card.p-offline .card-state-label {
@@ -261,26 +298,6 @@
       letter-spacing: 0.12em;
       line-height: 1;
       text-align: center;
-    }
-
-    .card-pct-paused {
-      display: flex;
-      align-items: baseline;
-      justify-content: center;
-      gap: 3px;
-      line-height: 1;
-      color: var(--state-clr);
-    }
-
-    .card-pct-paused-num {
-      font-size: 14px;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-    }
-
-    .card-pct-paused-sym {
-      font-size: 10px;
-      font-weight: 700;
     }
 
     .printer-name {
@@ -298,8 +315,12 @@
 
     .card.p-ready .card-pct,
     .card.p-paused .card-pct,
-    .card.p-printing .card-pct,
     .card.p-offline .card-pct {
+      align-items: stretch;
+      justify-content: flex-start;
+    }
+
+    .card.p-printing .card-pct {
       align-items: flex-start;
       justify-content: flex-start;
     }
@@ -381,37 +402,29 @@
       height: 64px;
     }
 
-    body.device-surface .card.p-ready .card-state-circle,
-    body.device-surface .card.p-paused .card-state-circle,
-    body.device-surface .card.p-offline .card-state-circle {
-      width: 159px;
-      height: 124px;
-      padding: 14px 11px;
-      gap: 7px;
-    }
-
-    body.device-surface .card.p-ready .card-state-icon,
-    body.device-surface .card.p-paused .card-state-icon,
-    body.device-surface .card.p-offline .card-state-icon {
-      width: 37px;
-      height: 37px;
+    body.device-surface .card.p-ready .card-state-circle .card-state-icon,
+    body.device-surface .card.p-paused .card-state-circle .card-state-icon,
+    body.device-surface .card.p-offline .card-state-circle .card-state-icon {
+      width: 67px;
+      height: 67px;
     }
 
     body.device-surface .card-state-label {
       font-size: 11px;
     }
 
-    body.device-surface .card-state-icon {
-      width: 32px;
-      height: 32px;
+    body.device-surface .card.p-paused .card-pct-corner {
+      top: 12px;
+      left: 12px;
     }
 
-    body.device-surface .card-pct-paused-num {
-      font-size: 16px;
+    body.device-surface .card.p-paused .card-pct-corner .card-pct-paused-num {
+      font-size: 37px;
     }
 
-    body.device-surface .card-pct-paused-sym {
-      font-size: 11px;
+    body.device-surface .card.p-paused .card-pct-corner .card-pct-paused-sym {
+      font-size: 14px;
+      margin-top: 5px;
     }
 
     body.device-surface .card-num {
@@ -448,13 +461,14 @@
             </div>
             <div class="card-state-paused" aria-label="Paused">
               <div class="card-state-circle">
-                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-                </svg>
-                <div class="card-pct-paused">
+                <div class="card-pct-corner">
                   <span class="card-pct-paused-num" data-field="progress-paused">0</span>
                   <span class="card-pct-paused-sym">%</span>
                 </div>
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                </svg>
+                <span class="card-state-label">PAUSE</span>
               </div>
             </div>
             <div class="card-state-offline" aria-label="Offline">
@@ -504,13 +518,14 @@
             </div>
             <div class="card-state-paused" aria-label="Paused">
               <div class="card-state-circle">
-                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-                </svg>
-                <div class="card-pct-paused">
+                <div class="card-pct-corner">
                   <span class="card-pct-paused-num" data-field="progress-paused">0</span>
                   <span class="card-pct-paused-sym">%</span>
                 </div>
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                </svg>
+                <span class="card-state-label">PAUSE</span>
               </div>
             </div>
             <div class="card-state-offline" aria-label="Offline">
@@ -560,13 +575,14 @@
             </div>
             <div class="card-state-paused" aria-label="Paused">
               <div class="card-state-circle">
-                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-                </svg>
-                <div class="card-pct-paused">
+                <div class="card-pct-corner">
                   <span class="card-pct-paused-num" data-field="progress-paused">0</span>
                   <span class="card-pct-paused-sym">%</span>
                 </div>
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                </svg>
+                <span class="card-state-label">PAUSE</span>
               </div>
             </div>
             <div class="card-state-offline" aria-label="Offline">
