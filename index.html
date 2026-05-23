@@ -143,12 +143,12 @@
     .card[data-id="q2"] { --printer-clr: #00d2ff; }
     .card[data-id="u1"] { --printer-clr: #f0c028; }
     .card[data-id="p1s"] { --printer-clr: #10b981; }
-
     .card.p-offline {
       --state-clr: #94a3b8;
       --printer-clr: #94a3b8;
       --state-bg: rgba(148, 163, 184, 0.12);
-      background: #101012;
+      background-color: #121214;
+      background-image: linear-gradient(var(--state-bg), var(--state-bg));
     }
 
     .card.p-offline .card-rail-track {
@@ -158,14 +158,17 @@
     .card.p-ready {
       --state-clr: #a78bfa;
       --state-bg: rgba(167, 139, 250, 0.14);
-      background: #14121a;
+      background-color: #121214;
+      background-image: linear-gradient(var(--state-bg), var(--state-bg));
     }
 
     .card.p-paused {
       --state-clr: #fb923c;
       --state-bg: rgba(251, 146, 60, 0.14);
       --title-clr: var(--state-clr);
-      background: #16130f;
+      --printer-clr: var(--state-clr);
+      background-color: #121214;
+      background-image: linear-gradient(var(--state-bg), var(--state-bg));
     }
 
     .card.p-ready .card-rail-track {
@@ -174,6 +177,10 @@
 
     .card.p-paused .card-rail-track {
       background: rgba(251, 146, 60, 0.2);
+    }
+
+    .card.p-paused .card-rail-fill {
+      background: var(--state-clr);
     }
 
     .card-state-standby,
@@ -240,9 +247,9 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      padding: 12px 10px;
+      padding: 0;
       box-sizing: border-box;
-      background: var(--state-bg);
+      background: transparent;
     }
 
     .card.p-paused .card-pct-corner {
@@ -276,8 +283,8 @@
     .card.p-offline .card-state-circle .card-state-icon {
       position: static;
       transform: none;
-      width: 58px;
-      height: 58px;
+      width: 67px;
+      height: 67px;
       flex-shrink: 0;
     }
 
@@ -397,16 +404,11 @@
       padding-top: 9px;
     }
 
-    body.device-surface .card-state-circle {
-      width: 64px;
-      height: 64px;
-    }
-
     body.device-surface .card.p-ready .card-state-circle .card-state-icon,
     body.device-surface .card.p-paused .card-state-circle .card-state-icon,
     body.device-surface .card.p-offline .card-state-circle .card-state-icon {
-      width: 67px;
-      height: 67px;
+      width: 77px;
+      height: 77px;
     }
 
     body.device-surface .card-state-label {
@@ -718,8 +720,9 @@
       const el = card.querySelector('[data-field="' + name + '"]');
       if (!el) return;
       el.textContent = value;
-      if (name === 'remaining' || name === 'estimated' || name === 'layer') {
-        el.classList.toggle('is-placeholder', value === JOB_PLACEHOLDER);
+      const isPlaceholder = value === JOB_PLACEHOLDER || value === '--';
+      if (name === 'remaining' || name === 'estimated' || name === 'layer' || name === 'nozzle' || name === 'bed') {
+        el.classList.toggle('is-placeholder', isPlaceholder);
       }
     }
 
