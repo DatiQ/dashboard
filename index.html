@@ -91,7 +91,7 @@
       min-height: 0;
       background: var(--printer-clr, #64748b);
       border-radius: 2px;
-      transition: height 0.6s ease;
+      transition: height 0.35s ease;
     }
 
     .card-rail-fill.is-full {
@@ -636,19 +636,17 @@
     const cloudTopic = 'my_printers/data';
 
     const PRINTER_IDS = ['q2', 'u1', 'p1s'];
-    const MAX_DATA_ATTEMPTS = 4;
-    const DATA_ATTEMPT_MS = 8000;
-    const MQTT_STALE_MS = 22000;
+    const DATA_ATTEMPT_MS = 10000;
+    const MQTT_STALE_MS = 25000;
 
     const clientId = 'web_dashboard_' + Math.random().toString(16).substr(2, 8);
     const mqtt = new Paho.MQTT.Client(cloudBroker, cloudPort, clientId);
 
     let mqttConnected = false;
-    let gotDataThisCycle = false;
     let lastMqttAt = 0;
     let dataAttemptTimer = null;
     const lastPrinterData = {};
-    const printerFailAttempts = Object.fromEntries(PRINTER_IDS.map(id => [id, 0]));
+    const cardUi = {};
     const P1S_WARMUP_MS = 50000;
     let p1sWarmupUntil = 0;
     let p1sLastGoodPct = 0;
@@ -672,7 +670,6 @@
       const prev = lastPrinterData.p1s;
       const pct = Math.min(100, Math.max(0, Number(raw.progress) || 0));
       const remSec = Number(raw.remSec) || 0;
-      const inWarmup = Date.now() < p1sWarmupUntil;
       const printing = raw.online && raw.state === 'PRINTING';
 
       if (printing && pct > 0 && pct < 92 && remSec > 0) {
@@ -693,7 +690,7 @@
         }
       }
 
-      if (inWarmup) {
+      if (Date.now() < p1sWarmupUntil) {
         if (printing && pct >= 90) {
           out.progress = 0;
           out.remSec = 0;
@@ -712,6 +709,33 @@
       return out;
     }
 
+    function initCardUi() {
+      PRINTER_IDS.forEach(id => {
+        const card = document.getElementById('card_' + id);
+        if (!card) return;
+        cardUi[id] = {
+          card,
+          railFill: card.querySelector('.card-rail-fill'),
+          numEl: card.querySelector('[data-field="progress-num"]'),
+          symEl: card.querySelector('.card-sym'),
+          pausedNumEl: card.querySelector('[data-field="progress-paused"]'),
+          titleEl: card.querySelector('.card-title'),
+          printerName: card.querySelector('.printer-name'),
+          remaining: card.querySelector('[data-field="remaining"]'),
+          estimated: card.querySelector('[data-field="estimated"]'),
+          layer: card.querySelector('[data-field="layer"]'),
+          nozzle: card.querySelector('[data-field="nozzle"]'),
+          bed: card.querySelector('[data-field="bed"]')
+        };
+      });
+    }
+
+    function setParamField(el, value, isPlaceholder) {
+      if (!el || el.textContent === value) return;
+      el.textContent = value;
+      el.classList.toggle('is-placeholder', isPlaceholder);
+    }
+
     function stopDataAttempts() {
       if (dataAttemptTimer) {
         clearInterval(dataAttemptTimer);
@@ -719,39 +743,21 @@
       }
     }
 
-    function registerDataMiss(ids) {
-      ids.forEach(id => {
-        printerFailAttempts[id]++;
-        if (printerFailAttempts[id] >= MAX_DATA_ATTEMPTS) {
-          setPrinterOffline(id);
-        }
-      });
-    }
-
-    function resetDataMiss(id) {
-      printerFailAttempts[id] = 0;
+    function checkMqttStale() {
+      if (!mqttConnected || !lastMqttAt) return;
+      if (Date.now() - lastMqttAt <= MQTT_STALE_MS) return;
+      PRINTER_IDS.forEach(setPrinterOffline);
     }
 
     function startDataAttempts() {
       stopDataAttempts();
-      dataAttemptTimer = setInterval(() => {
-        if (!mqttConnected) return;
-        const stale = !lastMqttAt || (Date.now() - lastMqttAt > MQTT_STALE_MS);
-        if (!gotDataThisCycle && stale) {
-          registerDataMiss(PRINTER_IDS);
-        }
-        gotDataThisCycle = false;
-      }, DATA_ATTEMPT_MS);
-    }
-
-    function recordConnectFailure() {
-      registerDataMiss(PRINTER_IDS);
+      dataAttemptTimer = setInterval(checkMqttStale, DATA_ATTEMPT_MS);
     }
 
     mqtt.onConnectionLost = () => {
       mqttConnected = false;
       stopDataAttempts();
-      recordConnectFailure();
+      PRINTER_IDS.forEach(setPrinterOffline);
       setTimeout(connectMQTT, 2000);
     };
 
@@ -769,26 +775,10 @@
       return JOB_PLACEHOLDER;
     }
 
-    function getStatusText(p) {
-      if (!p.online) return 'OFFLINE';
-      if (p.state === 'READY') return 'STANDBY';
-      return p.state;
-    }
-
     function getContentMode(p) {
       if (!p.online || (p.online && (p.state === 'PRINTING' || p.state === 'READY'))) return 'print';
       if (p.state === 'PAUSED') return 'idle-paused';
       return 'idle-standby';
-    }
-
-    function setField(card, name, value) {
-      const el = card.querySelector('[data-field="' + name + '"]');
-      if (!el) return;
-      el.textContent = value;
-      const isPlaceholder = value === JOB_PLACEHOLDER || value === '--';
-      if (name === 'remaining' || name === 'estimated' || name === 'layer' || name === 'nozzle' || name === 'bed') {
-        el.classList.toggle('is-placeholder', isPlaceholder);
-      }
     }
 
     function getFillProgress(p) {
@@ -808,28 +798,35 @@
     }
 
     function setPrinterOffline(id) {
-      const card = document.getElementById('card_' + id);
-      if (!card) return;
+      const ui = cardUi[id];
+      if (!ui) return;
       const p = Object.assign({}, lastPrinterData[id] || {}, { online: false, state: 'OFFLINE' });
-      card.className = 'card p-offline';
-      updateCard(card, p);
+      const cls = 'card p-offline';
+      if (ui.card.className !== cls) ui.card.className = cls;
+      updateCard(id, p);
     }
 
     function applyPrinterData(id, raw) {
-      const card = document.getElementById('card_' + id);
-      if (!card) return;
+      const ui = cardUi[id];
+      if (!ui) return;
       if (id === 'p1s') raw = sanitizeP1sPayload(raw);
       lastPrinterData[id] = raw;
       const p = raw;
-      card.className = 'card ' + getStateClass(p);
-      updateCard(card, p);
+      const cls = 'card ' + getStateClass(p);
+      if (ui.card.className !== cls) ui.card.className = cls;
+      updateCard(id, p);
     }
 
-    function updateCard(card, p) {
+    function updateCard(id, p) {
+      const ui = cardUi[id];
+      if (!ui) return;
+      const card = ui.card;
       const fillProgress = getFillProgress(p);
-      card.style.setProperty('--progress-num', fillProgress);
-      const railFill = card.querySelector('.card-rail-fill');
-      if (railFill) railFill.classList.toggle('is-full', fillProgress >= 100);
+      const fillStr = String(fillProgress);
+      if (card.style.getPropertyValue('--progress-num') !== fillStr) {
+        card.style.setProperty('--progress-num', fillProgress);
+      }
+      if (ui.railFill) ui.railFill.classList.toggle('is-full', fillProgress >= 100);
 
       const jobActive = p.online && p.state === 'PRINTING';
       const progress = jobActive
@@ -839,52 +836,47 @@
       const remaining = jobActive ? (p.remaining || JOB_PLACEHOLDER) : JOB_PLACEHOLDER;
       const estimated = jobActive ? formatEstimated(p) : JOB_PLACEHOLDER;
       const layer = jobActive ? (p.layer || JOB_PLACEHOLDER) : JOB_PLACEHOLDER;
+      const nozzle = formatTemp(p.nozzle);
+      const bed = formatTemp(p.bed);
 
-      const numEl = card.querySelector('[data-field="progress-num"]');
-      const symEl = card.querySelector('.card-sym');
-      const pausedNumEl = card.querySelector('[data-field="progress-paused"]');
-
-      if (p.online && p.state === 'PAUSED' && pausedNumEl) {
-        pausedNumEl.textContent = Math.min(100, Math.max(0, Number(p.progress) || 0));
+      if (p.online && p.state === 'PAUSED' && ui.pausedNumEl) {
+        const pausedPct = String(Math.min(100, Math.max(0, Number(p.progress) || 0)));
+        if (ui.pausedNumEl.textContent !== pausedPct) ui.pausedNumEl.textContent = pausedPct;
       }
 
       if (!(p.online && (p.state === 'READY' || p.state === 'PAUSED'))) {
-        const displayNum = p.online ? (jobActive ? progress : '—') : '—';
-        if (numEl) numEl.textContent = displayNum;
-        if (symEl) symEl.hidden = !p.online;
+        const displayNum = p.online ? (jobActive ? String(progress) : '—') : '—';
+        if (ui.numEl && ui.numEl.textContent !== displayNum) ui.numEl.textContent = displayNum;
+        if (ui.symEl) ui.symEl.hidden = !p.online;
       }
 
-      setField(card, 'remaining', remaining);
-      setField(card, 'estimated', estimated);
-      setField(card, 'layer', layer);
-      setField(card, 'nozzle', formatTemp(p.nozzle));
-      setField(card, 'bed', formatTemp(p.bed));
+      const ph = (v) => v === JOB_PLACEHOLDER || v === '--';
+      setParamField(ui.remaining, remaining, ph(remaining));
+      setParamField(ui.estimated, estimated, ph(estimated));
+      setParamField(ui.layer, layer, ph(layer));
+      setParamField(ui.nozzle, nozzle, ph(nozzle));
+      setParamField(ui.bed, bed, ph(bed));
 
-      const titleEl = card.querySelector('.card-title');
-      if (titleEl) titleEl.textContent = card.querySelector('.printer-name').textContent;
+      const mode = getContentMode(p);
+      if (card.dataset.mode !== mode) card.dataset.mode = mode;
+      const jobFlag = jobActive ? '1' : '0';
+      if (card.dataset.jobActive !== jobFlag) card.dataset.jobActive = jobFlag;
 
-      card.dataset.mode = getContentMode(p);
-      card.dataset.jobActive = jobActive ? '1' : '0';
-
-      const baseOrder = card.dataset.id === 'q2' ? 1 : (card.dataset.id === 'u1' ? 2 : 3);
-      card.style.order = (p.online && p.state === 'PRINTING') ? baseOrder : (baseOrder + 3);
+      const baseOrder = id === 'q2' ? 1 : (id === 'u1' ? 2 : 3);
+      const order = (p.online && p.state === 'PRINTING') ? baseOrder : (baseOrder + 3);
+      if (card.style.order !== String(order)) card.style.order = order;
     }
 
     mqtt.onMessageArrived = (message) => {
       try {
-        gotDataThisCycle = true;
         lastMqttAt = Date.now();
         const data = JSON.parse(message.payloadString);
         if (data.p1sWarmup) startP1sWarmup();
         PRINTER_IDS.forEach(id => {
-          if (data[id]) {
-            resetDataMiss(id);
-            applyPrinterData(id, data[id]);
-          }
+          if (data[id]) applyPrinterData(id, data[id]);
         });
       } catch (e) {
         console.error(e);
-        recordConnectFailure();
       }
     };
 
@@ -895,8 +887,7 @@
         password: cloudPass,
         onSuccess: () => {
           mqttConnected = true;
-          PRINTER_IDS.forEach(resetDataMiss);
-          gotDataThisCycle = false;
+          lastMqttAt = 0;
           startP1sWarmup();
           mqtt.subscribe(cloudTopic);
           startDataAttempts();
@@ -904,12 +895,12 @@
         onFailure: () => {
           mqttConnected = false;
           stopDataAttempts();
-          recordConnectFailure();
           setTimeout(connectMQTT, 2000);
         }
       });
     }
 
+    initCardUi();
     connectMQTT();
   </script>
 </body>
