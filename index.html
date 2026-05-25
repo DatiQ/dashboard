@@ -647,11 +647,22 @@
     let dataAttemptTimer = null;
     const lastPrinterData = {};
     const printerFailAttempts = Object.fromEntries(PRINTER_IDS.map(id => [id, 0]));
-    const P1S_WARMUP_MS = 35000;
+    const P1S_WARMUP_MS = 50000;
     let p1sWarmupUntil = 0;
+    let p1sLastGoodPct = 0;
 
     function startP1sWarmup() {
-      p1sWarmupUntil = Date.now() + P1S_WARMUP_MS;
+      const until = Date.now() + P1S_WARMUP_MS;
+      if (until > p1sWarmupUntil) p1sWarmupUntil = until;
+    }
+
+    function isP1sFakeComplete(raw, pct, remSec) {
+      return raw.online && raw.state === 'PRINTING' && pct >= 99 && remSec <= 0;
+    }
+
+    function isP1sStaleSpike(raw, pct, remSec) {
+      return raw.online && raw.state === 'PRINTING' && pct >= 92
+        && p1sLastGoodPct > 0 && p1sLastGoodPct < 70 && remSec <= 120;
     }
 
     function sanitizeP1sPayload(raw) {
@@ -662,26 +673,40 @@
       const inWarmup = Date.now() < p1sWarmupUntil;
       const printing = raw.online && raw.state === 'PRINTING';
 
-      if (prev && prev.state === 'PRINTING' && printing && prev.progress >= 99 && pct < 90) {
-        p1sWarmupUntil = 0;
+      if (printing && pct > 0 && pct < 92 && remSec > 0) {
+        p1sLastGoodPct = pct;
       }
-
-      if (!inWarmup) return raw;
+      if (prev && printing && prev.progress >= 99 && pct > 0 && pct < 90) {
+        p1sWarmupUntil = 0;
+        p1sLastGoodPct = pct;
+      }
 
       const out = Object.assign({}, raw);
-      if (printing && pct >= 90) {
-        out.progress = 0;
-        out.remSec = 0;
-        out.remaining = JOB_PLACEHOLDER;
-        out.layer = JOB_PLACEHOLDER;
+
+      if (isP1sFakeComplete(raw, pct, remSec) || isP1sStaleSpike(raw, pct, remSec)) {
+        out.progress = p1sLastGoodPct;
+        if (remSec <= 0) {
+          out.remSec = 0;
+          out.remaining = JOB_PLACEHOLDER;
+        }
       }
-      if (raw.online && raw.state === 'READY' && pct >= 90) {
-        out.progress = 0;
+
+      if (inWarmup) {
+        if (printing && pct >= 90) {
+          out.progress = 0;
+          out.remSec = 0;
+          out.remaining = JOB_PLACEHOLDER;
+          out.layer = JOB_PLACEHOLDER;
+        }
+        if (raw.online && raw.state === 'READY' && pct >= 90) {
+          out.progress = 0;
+        }
+        if (raw.online && raw.state === 'READY' && prev && prev.state === 'PRINTING') {
+          out.state = 'PRINTING';
+          out.progress = 0;
+        }
       }
-      if (raw.online && raw.state === 'READY' && prev && prev.state === 'PRINTING') {
-        out.state = 'PRINTING';
-        out.progress = 0;
-      }
+
       return out;
     }
 
@@ -846,7 +871,7 @@
       try {
         gotDataThisCycle = true;
         const data = JSON.parse(message.payloadString);
-        if (data.p1sWarmup && Date.now() >= p1sWarmupUntil) startP1sWarmup();
+        if (data.p1sWarmup) startP1sWarmup();
         PRINTER_IDS.forEach(id => {
           if (data[id]) {
             resetDataMiss(id);
