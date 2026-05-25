@@ -252,32 +252,6 @@
       background: transparent;
     }
 
-    .card.p-paused .card-pct-corner {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 2;
-      display: flex;
-      align-items: flex-start;
-      gap: 2px;
-      line-height: 1;
-      color: var(--state-clr);
-    }
-
-    .card.p-paused .card-pct-corner .card-pct-paused-num {
-      font-size: 32px;
-      font-weight: 800;
-      letter-spacing: -0.03em;
-      line-height: 1;
-    }
-
-    .card.p-paused .card-pct-corner .card-pct-paused-sym {
-      font-size: 12px;
-      font-weight: 700;
-      line-height: 1;
-      margin-top: 5px;
-    }
-
     .card.p-ready .card-state-circle .card-state-icon,
     .card.p-paused .card-state-circle .card-state-icon,
     .card.p-offline .card-state-circle .card-state-icon {
@@ -330,6 +304,32 @@
     .card.p-printing .card-pct {
       align-items: flex-start;
       justify-content: flex-start;
+    }
+
+    .card.p-paused .card-pct-corner {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 2;
+      display: flex;
+      align-items: flex-start;
+      gap: 2px;
+      line-height: 1;
+      color: var(--state-clr);
+    }
+
+    .card.p-paused .card-pct-corner .card-pct-paused-num {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+
+    .card.p-paused .card-pct-corner .card-pct-paused-sym {
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1;
+      margin-top: 5px;
     }
 
     .card-pct-inner {
@@ -647,6 +647,43 @@
     let dataAttemptTimer = null;
     const lastPrinterData = {};
     const printerFailAttempts = Object.fromEntries(PRINTER_IDS.map(id => [id, 0]));
+    const P1S_WARMUP_MS = 35000;
+    let p1sWarmupUntil = 0;
+
+    function startP1sWarmup() {
+      p1sWarmupUntil = Date.now() + P1S_WARMUP_MS;
+    }
+
+    function sanitizeP1sPayload(raw) {
+      if (!raw || raw.state === undefined) return raw;
+      const prev = lastPrinterData.p1s;
+      const pct = Math.min(100, Math.max(0, Number(raw.progress) || 0));
+      const remSec = Number(raw.remSec) || 0;
+      const inWarmup = Date.now() < p1sWarmupUntil;
+      const printing = raw.online && raw.state === 'PRINTING';
+
+      if (prev && prev.state === 'PRINTING' && printing && prev.progress >= 99 && pct < 90) {
+        p1sWarmupUntil = 0;
+      }
+
+      if (!inWarmup) return raw;
+
+      const out = Object.assign({}, raw);
+      if (printing && pct >= 90) {
+        out.progress = 0;
+        out.remSec = 0;
+        out.remaining = JOB_PLACEHOLDER;
+        out.layer = JOB_PLACEHOLDER;
+      }
+      if (raw.online && raw.state === 'READY' && pct >= 90) {
+        out.progress = 0;
+      }
+      if (raw.online && raw.state === 'READY' && prev && prev.state === 'PRINTING') {
+        out.state = 'PRINTING';
+        out.progress = 0;
+      }
+      return out;
+    }
 
     function stopDataAttempts() {
       if (dataAttemptTimer) {
@@ -753,6 +790,7 @@
     function applyPrinterData(id, raw) {
       const card = document.getElementById('card_' + id);
       if (!card) return;
+      if (id === 'p1s') raw = sanitizeP1sPayload(raw);
       lastPrinterData[id] = raw;
       const p = raw;
       card.className = 'card ' + getStateClass(p);
@@ -808,6 +846,7 @@
       try {
         gotDataThisCycle = true;
         const data = JSON.parse(message.payloadString);
+        if (data.p1sWarmup && Date.now() >= p1sWarmupUntil) startP1sWarmup();
         PRINTER_IDS.forEach(id => {
           if (data[id]) {
             resetDataMiss(id);
@@ -831,6 +870,7 @@
           mqttConnected = true;
           PRINTER_IDS.forEach(resetDataMiss);
           gotDataThisCycle = false;
+          startP1sWarmup();
           mqtt.subscribe(cloudTopic);
           startDataAttempts();
         },
