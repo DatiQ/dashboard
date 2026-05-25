@@ -655,7 +655,7 @@
       const remSec = Number(raw.remSec) || 0;
       const printing = raw.online && raw.state === 'PRINTING';
 
-      if (prev && prev.online && prev.state === 'PRINTING' && raw.online && raw.state === 'READY') {
+      if (prev && prev.online && prev.state === 'PRINTING' && raw.online && raw.state === 'READY' && pct > 0) {
         out.state = 'PRINTING';
         out.progress = prev.progress;
         out.remSec = prev.remSec;
@@ -664,19 +664,12 @@
         return out;
       }
 
-      if (printing && pct >= 99 && remSec <= 0 && prev && prev.progress > 0 && prev.progress < 99) {
+      if (printing && pct >= 99 && remSec <= 0 && prev && prev.progress > 0 && prev.progress < 85) {
         out.progress = prev.progress;
         out.remSec = prev.remSec;
         out.remaining = prev.remaining;
         out.layer = prev.layer;
         return out;
-      }
-
-      if (printing && pct === 0 && prev && prev.state === 'PRINTING' && prev.progress > 0) {
-        out.progress = prev.progress;
-        out.remSec = prev.remSec;
-        out.remaining = prev.remaining;
-        out.layer = prev.layer;
       }
 
       return out;
