@@ -647,63 +647,36 @@
     let dataAttemptTimer = null;
     const lastPrinterData = {};
     const cardUi = {};
-    const P1S_WARMUP_MS = 50000;
-    let p1sWarmupUntil = 0;
-    let p1sLastGoodPct = 0;
-
-    function startP1sWarmup() {
-      const until = Date.now() + P1S_WARMUP_MS;
-      if (until > p1sWarmupUntil) p1sWarmupUntil = until;
-    }
-
-    function isP1sFakeComplete(raw, pct, remSec) {
-      return raw.online && raw.state === 'PRINTING' && pct >= 99 && remSec <= 0;
-    }
-
-    function isP1sStaleSpike(raw, pct, remSec) {
-      return raw.online && raw.state === 'PRINTING' && pct >= 92
-        && p1sLastGoodPct > 0 && p1sLastGoodPct < 70 && remSec <= 120;
-    }
-
     function sanitizeP1sPayload(raw) {
       if (!raw || raw.state === undefined) return raw;
       const prev = lastPrinterData.p1s;
+      const out = Object.assign({}, raw);
       const pct = Math.min(100, Math.max(0, Number(raw.progress) || 0));
       const remSec = Number(raw.remSec) || 0;
       const printing = raw.online && raw.state === 'PRINTING';
 
-      if (printing && pct > 0 && pct < 92 && remSec > 0) {
-        p1sLastGoodPct = pct;
-      }
-      if (prev && printing && prev.progress >= 99 && pct > 0 && pct < 90) {
-        p1sWarmupUntil = 0;
-        p1sLastGoodPct = pct;
-      }
-
-      const out = Object.assign({}, raw);
-
-      if (isP1sFakeComplete(raw, pct, remSec) || isP1sStaleSpike(raw, pct, remSec)) {
-        out.progress = p1sLastGoodPct;
-        if (remSec <= 0) {
-          out.remSec = 0;
-          out.remaining = JOB_PLACEHOLDER;
-        }
+      if (prev && prev.online && prev.state === 'PRINTING' && raw.online && raw.state === 'READY') {
+        out.state = 'PRINTING';
+        out.progress = prev.progress;
+        out.remSec = prev.remSec;
+        out.remaining = prev.remaining;
+        out.layer = prev.layer;
+        return out;
       }
 
-      if (Date.now() < p1sWarmupUntil) {
-        if (printing && pct >= 90) {
-          out.progress = 0;
-          out.remSec = 0;
-          out.remaining = JOB_PLACEHOLDER;
-          out.layer = JOB_PLACEHOLDER;
-        }
-        if (raw.online && raw.state === 'READY' && pct >= 90) {
-          out.progress = 0;
-        }
-        if (raw.online && raw.state === 'READY' && prev && prev.state === 'PRINTING') {
-          out.state = 'PRINTING';
-          out.progress = 0;
-        }
+      if (printing && pct >= 99 && remSec <= 0 && prev && prev.progress > 0 && prev.progress < 99) {
+        out.progress = prev.progress;
+        out.remSec = prev.remSec;
+        out.remaining = prev.remaining;
+        out.layer = prev.layer;
+        return out;
+      }
+
+      if (printing && pct === 0 && prev && prev.state === 'PRINTING' && prev.progress > 0) {
+        out.progress = prev.progress;
+        out.remSec = prev.remSec;
+        out.remaining = prev.remaining;
+        out.layer = prev.layer;
       }
 
       return out;
@@ -871,7 +844,6 @@
       try {
         lastMqttAt = Date.now();
         const data = JSON.parse(message.payloadString);
-        if (data.p1sWarmup) startP1sWarmup();
         PRINTER_IDS.forEach(id => {
           if (data[id]) applyPrinterData(id, data[id]);
         });
@@ -888,7 +860,6 @@
         onSuccess: () => {
           mqttConnected = true;
           lastMqttAt = 0;
-          startP1sWarmup();
           mqtt.subscribe(cloudTopic);
           startDataAttempts();
         },
