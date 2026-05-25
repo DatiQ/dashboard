@@ -636,14 +636,16 @@
     const cloudTopic = 'my_printers/data';
 
     const PRINTER_IDS = ['q2', 'u1', 'p1s'];
-    const MAX_DATA_ATTEMPTS = 3;
-    const DATA_ATTEMPT_MS = 5000;
+    const MAX_DATA_ATTEMPTS = 4;
+    const DATA_ATTEMPT_MS = 8000;
+    const MQTT_STALE_MS = 22000;
 
     const clientId = 'web_dashboard_' + Math.random().toString(16).substr(2, 8);
     const mqtt = new Paho.MQTT.Client(cloudBroker, cloudPort, clientId);
 
     let mqttConnected = false;
     let gotDataThisCycle = false;
+    let lastMqttAt = 0;
     let dataAttemptTimer = null;
     const lastPrinterData = {};
     const printerFailAttempts = Object.fromEntries(PRINTER_IDS.map(id => [id, 0]));
@@ -734,7 +736,8 @@
       stopDataAttempts();
       dataAttemptTimer = setInterval(() => {
         if (!mqttConnected) return;
-        if (!gotDataThisCycle) {
+        const stale = !lastMqttAt || (Date.now() - lastMqttAt > MQTT_STALE_MS);
+        if (!gotDataThisCycle && stale) {
           registerDataMiss(PRINTER_IDS);
         }
         gotDataThisCycle = false;
@@ -870,14 +873,13 @@
     mqtt.onMessageArrived = (message) => {
       try {
         gotDataThisCycle = true;
+        lastMqttAt = Date.now();
         const data = JSON.parse(message.payloadString);
         if (data.p1sWarmup) startP1sWarmup();
         PRINTER_IDS.forEach(id => {
           if (data[id]) {
             resetDataMiss(id);
             applyPrinterData(id, data[id]);
-          } else {
-            registerDataMiss([id]);
           }
         });
       } catch (e) {
