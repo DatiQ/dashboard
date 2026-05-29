@@ -702,6 +702,7 @@
       x2d: 'Bambu Lab X2D'
     };
     const DATA_ATTEMPT_MS = 10000;
+    const STUCK_AT_100_MS = 50000;
     const MQTT_STALE_MS = 45000;
 
     const clientId = 'web_dashboard_' + Math.random().toString(16).substr(2, 8);
@@ -713,23 +714,17 @@
     const lastPrinterData = {};
     const cardUi = {};
     const notifiedDone = {};
+    const stuckAt100Since = {};
+    const stuckDoneEmitted = {};
 
     function maybeNotifyPrintDone(id, p) {
       if (p.jobEvent !== 'done') return;
       if (notifiedDone[id]) return;
       notifiedDone[id] = true;
+      if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
       const name = PRINTER_LABELS[id]
         || (cardUi[id] && cardUi[id].printerName ? cardUi[id].printerName.textContent : id.toUpperCase());
-      const title = 'Друк завершено';
-      const body = name;
-      if (typeof Notification === 'undefined') return;
-      if (Notification.permission === 'granted') {
-        new Notification(title, { body });
-      } else if (Notification.permission !== 'denied') {
-        Notification.requestPermission().then((perm) => {
-          if (perm === 'granted') new Notification(title, { body });
-        });
-      }
+      new Notification('Друк завершено', { body: name });
     }
 
     function normalizePrinterPayload(raw) {
@@ -745,13 +740,42 @@
       const pct = Math.min(100, Math.max(0, Number(out.progress) || 0));
       if (out.isPrinting === true || out.isPrinting === 1) {
         if (out.state === 'READY' || out.state === 'OFFLINE') out.state = 'PRINTING';
-      } else if (out.state === 'READY' && pct > 0) {
+      } else if (out.state === 'READY' && pct > 0 && pct < 99) {
         out.state = 'PRINTING';
+      } else if (out.state === 'READY' && pct >= 99) {
+        out.progress = 0;
+        out.isPrinting = false;
       }
       if (out.state === 'PRINTING' || out.state === 'PAUSED') {
         out.isPrinting = (out.state === 'PRINTING');
       }
       return out;
+    }
+
+    function applyStuckAt100Fallback(id, raw) {
+      if (!raw || raw.jobEvent === 'done') return raw;
+      const pct = Math.min(100, Math.max(0, Number(raw.progress) || 0));
+      const remSec = Number(raw.remSec) || 0;
+      const printing = raw.online && raw.state === 'PRINTING' && raw.isPrinting !== false;
+      if (printing && pct >= 99) {
+        if (!stuckAt100Since[id]) stuckAt100Since[id] = Date.now();
+      } else {
+        stuckAt100Since[id] = 0;
+        stuckDoneEmitted[id] = false;
+        return raw;
+      }
+      if (Date.now() - stuckAt100Since[id] < STUCK_AT_100_MS) return raw;
+      if (stuckDoneEmitted[id]) return raw;
+      stuckDoneEmitted[id] = true;
+      return Object.assign({}, raw, {
+        jobEvent: 'done',
+        state: 'READY',
+        isPrinting: false,
+        progress: 0,
+        remSec: 0,
+        remaining: '--m',
+        layer: '0/0'
+      });
     }
 
     function sanitizeBambuPayload(id, raw) {
@@ -861,9 +885,11 @@
 
     function isJobActive(p) {
       if (!p.online) return false;
+      if (p.jobEvent === 'done') return false;
+      if (p.state === 'READY' && !p.isPrinting) return false;
       if (p.state === 'PRINTING' || p.state === 'PAUSED') return true;
       if (p.isPrinting === true || p.isPrinting === 1) return true;
-      return Number(p.progress) > 0;
+      return false;
     }
 
     function getFillProgress(p) {
@@ -895,10 +921,15 @@
       const ui = cardUi[id];
       if (!ui) return;
       raw = normalizePrinterPayload(raw);
-      if (BAMBU_IDS.indexOf(id) >= 0) raw = sanitizeBambuPayload(id, raw);
+      if (BAMBU_IDS.indexOf(id) >= 0) {
+        raw = applyStuckAt100Fallback(id, raw);
+        raw = sanitizeBambuPayload(id, raw);
+      }
       lastPrinterData[id] = raw;
       const p = raw;
-      if (p.state === 'PRINTING') notifiedDone[id] = false;
+      if (p.state === 'PRINTING' && Number(p.progress) > 0 && Number(p.progress) < 30) {
+        notifiedDone[id] = false;
+      }
       maybeNotifyPrintDone(id, p);
       const cls = 'card ' + getStateClass(p);
       if (ui.card.className !== cls) ui.card.className = cls;
@@ -988,9 +1019,6 @@
     }
 
     initCardUi();
-    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
     connectMQTT();
   </script>
 </body>
