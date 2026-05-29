@@ -746,6 +746,8 @@
 
     let mqttConnected = false;
     let lastMqttAt = 0;
+    let mqttConnectAt = 0;
+    let mqttReconnectTimer = null;
     let cloudBannerMode = 'hidden';
     let dataAttemptTimer = null;
     const cloudBannerEl = document.getElementById('cloud-banner');
@@ -800,7 +802,8 @@
         return raw;
       }
       if (!doneUiHold[id]) return raw;
-      if (raw.state === 'PRINTING' && pct > 0 && pct < 85) {
+      if (raw.state === 'PRINTING' || raw.state === 'PAUSED'
+          || raw.isPrinting === true || raw.isPrinting === 1) {
         doneUiHold[id] = 0;
         return raw;
       }
@@ -925,15 +928,39 @@
       document.body.classList.toggle('cloud-data-stale', mode === 'stale');
     }
 
+    function scheduleMqttReconnect(delayMs) {
+      if (mqttReconnectTimer) clearTimeout(mqttReconnectTimer);
+      mqttReconnectTimer = setTimeout(() => {
+        mqttReconnectTimer = null;
+        connectMQTT();
+      }, delayMs);
+    }
+
+    function forceMqttReconnect(bannerText) {
+      mqttConnected = false;
+      stopDataAttempts();
+      setCloudBanner('reconnecting', bannerText);
+      try {
+        mqtt.disconnect();
+      } catch (_) { /* already disconnected */ }
+      scheduleMqttReconnect(1000);
+    }
+
     function checkMqttStale() {
-      if (!mqttConnected || !lastMqttAt) return;
-      if (Date.now() - lastMqttAt <= MQTT_STALE_MS) {
+      if (!mqttConnected) return;
+      const now = Date.now();
+      if (!lastMqttAt) {
+        if (mqttConnectAt && now - mqttConnectAt > 90000) {
+          forceMqttReconnect('Дані з хмари не надходять — перепідключення…');
+        }
+        return;
+      }
+      if (now - lastMqttAt <= MQTT_STALE_MS) {
         if (cloudBannerMode === 'stale') setCloudBanner('hidden');
         return;
       }
-      setCloudBanner(
-        'stale',
-        'Немає свіжих даних з хмари (понад 2 хв) — показано останній відомий стан'
+      forceMqttReconnect(
+        'Немає свіжих даних з хмари (понад 2 хв) — перепідключення…'
       );
     }
 
@@ -946,8 +973,19 @@
       mqttConnected = false;
       stopDataAttempts();
       setCloudBanner('reconnecting', 'Зв\'язок з хмарою перервано — перепідключення…');
-      setTimeout(connectMQTT, 2000);
+      scheduleMqttReconnect(2000);
     };
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!mqttConnected) {
+        scheduleMqttReconnect(300);
+        return;
+      }
+      if (!lastMqttAt || Date.now() - lastMqttAt > 45000) {
+        forceMqttReconnect('Оновлення зв\'язку з хмарою…');
+      }
+    });
 
     function formatTemp(value) {
       const temp = Number(value);
@@ -1088,14 +1126,21 @@
     };
 
     function connectMQTT() {
+      if (mqttReconnectTimer) {
+        clearTimeout(mqttReconnectTimer);
+        mqttReconnectTimer = null;
+      }
       mqtt.connect({
         useSSL: true,
         userName: cloudUser,
         password: cloudPass,
+        keepAliveInterval: 45,
+        timeout: 15,
         onSuccess: () => {
           mqttConnected = true;
+          mqttConnectAt = Date.now();
           lastMqttAt = 0;
-          mqtt.subscribe(cloudTopic);
+          mqtt.subscribe(cloudTopic, { qos: 0 });
           startDataAttempts();
           setCloudBanner('connecting', 'Підключено до хмари — очікуємо дані…');
         },
@@ -1103,7 +1148,7 @@
           mqttConnected = false;
           stopDataAttempts();
           setCloudBanner('failed', 'Не вдалося підключитись до хмари — повтор через 2 с…');
-          setTimeout(connectMQTT, 2000);
+          scheduleMqttReconnect(2000);
         }
       });
     }
