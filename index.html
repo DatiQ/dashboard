@@ -143,6 +143,7 @@
     .card[data-id="q2"] { --printer-clr: #00d2ff; }
     .card[data-id="u1"] { --printer-clr: #f0c028; }
     .card[data-id="p1s"] { --printer-clr: #10b981; }
+    .card[data-id="x2d"] { --printer-clr: #FF6F00; }
     .card.p-offline {
       --state-clr: #94a3b8;
       --printer-clr: #94a3b8;
@@ -614,6 +615,63 @@
         </div>
       </div>
     </article>
+
+    <article id="card_x2d" class="card" data-id="x2d">
+      <h2 class="printer-name">Bambu Lab X2D</h2>
+      <div class="card-main">
+        <div class="card-col-pct">
+          <div class="card-pct">
+            <span class="card-pct-inner">
+              <span class="card-num" data-field="progress-num">—</span>
+              <span class="card-sym">%</span>
+            </span>
+            <div class="card-state-standby" aria-label="Standby">
+              <div class="card-state-circle">
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+                <span class="card-state-label">STANDBY</span>
+              </div>
+            </div>
+            <div class="card-state-paused" aria-label="Paused">
+              <div class="card-state-circle">
+                <div class="card-pct-corner">
+                  <span class="card-pct-paused-num" data-field="progress-paused">0</span>
+                  <span class="card-pct-paused-sym">%</span>
+                </div>
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                </svg>
+                <span class="card-state-label">PAUSE</span>
+              </div>
+            </div>
+            <div class="card-state-offline" aria-label="Offline">
+              <div class="card-state-circle">
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                </svg>
+                <span class="card-state-label">OFFLINE</span>
+              </div>
+            </div>
+          </div>
+          <div class="card-title">Bambu Lab X2D</div>
+        </div>
+        <div class="card-rail" aria-hidden="true">
+          <div class="card-rail-track">
+            <div class="card-rail-fill"></div>
+          </div>
+        </div>
+        <div class="card-col-params">
+          <dl class="card-params">
+            <dt>Remaining</dt><dd data-field="remaining">—</dd>
+            <dt>Estimated</dt><dd data-field="estimated">—</dd>
+            <dt>Layer</dt><dd data-field="layer">—</dd>
+            <dt>Nozzle</dt><dd data-field="nozzle">—</dd>
+            <dt>Bed</dt><dd data-field="bed">—</dd>
+          </dl>
+        </div>
+      </div>
+    </article>
   </div>
 
   <script>
@@ -635,9 +693,10 @@
     const cloudPass = 'fdfkjy';
     const cloudTopic = 'my_printers/data';
 
-    const PRINTER_IDS = ['q2', 'u1', 'p1s'];
+    const BAMBU_IDS = ['p1s', 'x2d'];
+    const PRINTER_IDS = ['q2', 'u1', 'p1s', 'x2d'];
     const DATA_ATTEMPT_MS = 10000;
-    const MQTT_STALE_MS = 25000;
+    const MQTT_STALE_MS = 45000;
 
     const clientId = 'web_dashboard_' + Math.random().toString(16).substr(2, 8);
     const mqtt = new Paho.MQTT.Client(cloudBroker, cloudPort, clientId);
@@ -647,13 +706,41 @@
     let dataAttemptTimer = null;
     const lastPrinterData = {};
     const cardUi = {};
-    function sanitizeP1sPayload(raw) {
+    function normalizePrinterPayload(raw) {
+      if (!raw) return raw;
+      const out = Object.assign({}, raw);
+      const pct = Math.min(100, Math.max(0, Number(out.progress) || 0));
+      if (!out.online) return out;
+      if (out.isPrinting === true || out.isPrinting === 1) {
+        if (out.state === 'READY' || out.state === 'OFFLINE') out.state = 'PRINTING';
+      }
+      if (out.state === 'READY' && pct > 0) out.state = 'PRINTING';
+      if (out.state === 'PRINTING' || out.state === 'PAUSED') out.isPrinting = (out.state === 'PRINTING');
+      return out;
+    }
+
+    function sanitizeBambuPayload(id, raw) {
       if (!raw || raw.state === undefined) return raw;
-      const prev = lastPrinterData.p1s;
+      const prev = lastPrinterData[id];
       const out = Object.assign({}, raw);
       const pct = Math.min(100, Math.max(0, Number(raw.progress) || 0));
       const remSec = Number(raw.remSec) || 0;
-      const printing = raw.online && raw.state === 'PRINTING';
+
+      if (raw.online && raw.state === 'READY' && (pct > 0 || remSec > 0)) {
+        out.state = 'PRINTING';
+      }
+
+      if (prev && prev.online && prev.state === 'PRINTING' && raw.online && raw.state === 'READY') {
+        out.state = 'PRINTING';
+        if (pct <= 0 && prev.progress > 0) out.progress = prev.progress;
+        if (remSec <= 0 && prev.remSec > 0) {
+          out.remSec = prev.remSec;
+          out.remaining = prev.remaining;
+        }
+        if ((!raw.layer || raw.layer === '0/0') && prev.layer) out.layer = prev.layer;
+      }
+
+      const printing = out.online && out.state === 'PRINTING';
 
       if (prev && prev.online && prev.state === 'PRINTING' && raw.online && raw.state === 'READY' && pct > 0) {
         out.state = 'PRINTING';
@@ -747,9 +834,16 @@
       return 'idle-standby';
     }
 
+    function isJobActive(p) {
+      if (!p.online) return false;
+      if (p.state === 'PRINTING' || p.state === 'PAUSED') return true;
+      if (p.isPrinting === true || p.isPrinting === 1) return true;
+      return Number(p.progress) > 0;
+    }
+
     function getFillProgress(p) {
       if (!p.online) return 0;
-      if (p.state === 'PRINTING' || p.state === 'PAUSED') {
+      if (isJobActive(p)) {
         return Math.min(100, Math.max(0, Number(p.progress) || 0));
       }
       return 0;
@@ -757,8 +851,8 @@
 
     function getStateClass(p) {
       if (!p.online) return 'p-offline';
-      if (p.state === 'PRINTING') return 'p-printing';
       if (p.state === 'PAUSED') return 'p-paused';
+      if (isJobActive(p)) return 'p-printing';
       if (p.state === 'READY') return 'p-ready';
       return 'p-offline';
     }
@@ -775,7 +869,8 @@
     function applyPrinterData(id, raw) {
       const ui = cardUi[id];
       if (!ui) return;
-      if (id === 'p1s') raw = sanitizeP1sPayload(raw);
+      raw = normalizePrinterPayload(raw);
+      if (BAMBU_IDS.indexOf(id) >= 0) raw = sanitizeBambuPayload(id, raw);
       lastPrinterData[id] = raw;
       const p = raw;
       const cls = 'card ' + getStateClass(p);
@@ -794,7 +889,7 @@
       }
       if (ui.railFill) ui.railFill.classList.toggle('is-full', fillProgress >= 100);
 
-      const jobActive = p.online && p.state === 'PRINTING';
+      const jobActive = isJobActive(p);
       const progress = jobActive
         ? Math.min(100, Math.max(0, Number(p.progress) || 0))
         : (p.online && p.state === 'READY' ? 0 : '—');
@@ -828,8 +923,9 @@
       const jobFlag = jobActive ? '1' : '0';
       if (card.dataset.jobActive !== jobFlag) card.dataset.jobActive = jobFlag;
 
-      const baseOrder = id === 'q2' ? 1 : (id === 'u1' ? 2 : 3);
-      const order = (p.online && p.state === 'PRINTING') ? baseOrder : (baseOrder + 3);
+      const orderMap = { q2: 1, u1: 2, p1s: 3, x2d: 4 };
+      const baseOrder = orderMap[id] || 5;
+      const order = (p.online && p.state === 'PRINTING') ? baseOrder : (baseOrder + 5);
       if (card.style.order !== String(order)) card.style.order = order;
     }
 
