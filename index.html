@@ -801,7 +801,13 @@
         doneUiHold[id] = Date.now();
         return raw;
       }
-      if (!doneUiHold[id]) return raw;
+      if (!doneUiHold[id]) {
+        if (raw.state === 'READY' && !raw.isPrinting && pct <= 0 && prev
+            && Number(prev.progress) >= 99) {
+          doneUiHold[id] = Date.now();
+        }
+        return raw;
+      }
       if (raw.state === 'PRINTING' || raw.state === 'PAUSED'
           || raw.isPrinting === true || raw.isPrinting === 1) {
         doneUiHold[id] = 0;
@@ -874,6 +880,11 @@
 
       if (id === 'x2d' && raw.online && !raw.isPrinting && raw.state === 'READY' && pct <= 0) {
         out.progress = 0;
+      }
+
+      if (raw.online && !raw.isPrinting && raw.state === 'READY' && pct >= 99) {
+        out.progress = 0;
+        out.state = 'READY';
       }
 
       return out;
