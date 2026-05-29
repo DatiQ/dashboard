@@ -440,9 +440,44 @@
       margin-top: 4px;
     }
 
+    .cloud-banner {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 200;
+      padding: 10px 20px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      background: rgba(234, 179, 8, 0.14);
+      color: #fbbf24;
+      border-bottom: 1px solid rgba(234, 179, 8, 0.35);
+      box-sizing: border-box;
+    }
+
+    .cloud-banner.is-error {
+      background: rgba(239, 68, 68, 0.12);
+      color: #f87171;
+      border-bottom-color: rgba(239, 68, 68, 0.35);
+    }
+
+    body.has-cloud-banner {
+      padding-top: 52px;
+    }
+
+    body.cloud-data-stale .dashboard {
+      opacity: 0.88;
+    }
+
   </style>
 </head>
 <body>
+
+  <div id="cloud-banner" class="cloud-banner" hidden role="status" aria-live="polite">
+    <span id="cloud-banner-text"></span>
+  </div>
 
   <div class="dashboard">
     <article id="card_q2" class="card" data-id="q2">
@@ -703,14 +738,17 @@
     };
     const DATA_ATTEMPT_MS = 10000;
     const STUCK_AT_100_MS = 50000;
-    const MQTT_STALE_MS = 45000;
+    const MQTT_STALE_MS = 120000;
 
     const clientId = 'web_dashboard_' + Math.random().toString(16).substr(2, 8);
     const mqtt = new Paho.MQTT.Client(cloudBroker, cloudPort, clientId);
 
     let mqttConnected = false;
     let lastMqttAt = 0;
+    let cloudBannerMode = 'hidden';
     let dataAttemptTimer = null;
+    const cloudBannerEl = document.getElementById('cloud-banner');
+    const cloudBannerTextEl = document.getElementById('cloud-banner-text');
     const lastPrinterData = {};
     const cardUi = {};
     const notifiedDone = {};
@@ -845,10 +883,31 @@
       }
     }
 
+    function setCloudBanner(mode, text) {
+      cloudBannerMode = mode;
+      if (!cloudBannerEl || !cloudBannerTextEl) return;
+      if (mode === 'hidden' || !text) {
+        cloudBannerEl.hidden = true;
+        document.body.classList.remove('has-cloud-banner', 'cloud-data-stale');
+        return;
+      }
+      cloudBannerTextEl.textContent = text;
+      cloudBannerEl.hidden = false;
+      cloudBannerEl.classList.toggle('is-error', mode === 'stale' || mode === 'failed');
+      document.body.classList.add('has-cloud-banner');
+      document.body.classList.toggle('cloud-data-stale', mode === 'stale');
+    }
+
     function checkMqttStale() {
       if (!mqttConnected || !lastMqttAt) return;
-      if (Date.now() - lastMqttAt <= MQTT_STALE_MS) return;
-      PRINTER_IDS.forEach(setPrinterOffline);
+      if (Date.now() - lastMqttAt <= MQTT_STALE_MS) {
+        if (cloudBannerMode === 'stale') setCloudBanner('hidden');
+        return;
+      }
+      setCloudBanner(
+        'stale',
+        'Немає свіжих даних з хмари (понад 2 хв) — показано останній відомий стан'
+      );
     }
 
     function startDataAttempts() {
@@ -859,7 +918,7 @@
     mqtt.onConnectionLost = () => {
       mqttConnected = false;
       stopDataAttempts();
-      PRINTER_IDS.forEach(setPrinterOffline);
+      setCloudBanner('reconnecting', 'Зв\'язок з хмарою перервано — перепідключення…');
       setTimeout(connectMQTT, 2000);
     };
 
@@ -990,6 +1049,7 @@
     mqtt.onMessageArrived = (message) => {
       try {
         lastMqttAt = Date.now();
+        setCloudBanner('hidden');
         const data = JSON.parse(message.payloadString);
         PRINTER_IDS.forEach(id => {
           if (data[id]) applyPrinterData(id, data[id]);
@@ -1009,10 +1069,12 @@
           lastMqttAt = 0;
           mqtt.subscribe(cloudTopic);
           startDataAttempts();
+          setCloudBanner('connecting', 'Підключено до хмари — очікуємо дані…');
         },
         onFailure: () => {
           mqttConnected = false;
           stopDataAttempts();
+          setCloudBanner('failed', 'Не вдалося підключитись до хмари — повтор через 2 с…');
           setTimeout(connectMQTT, 2000);
         }
       });
