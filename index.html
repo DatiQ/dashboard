@@ -143,7 +143,7 @@
     .card[data-id="q2"] { --printer-clr: #00d2ff; }
     .card[data-id="u1"] { --printer-clr: #f0c028; }
     .card[data-id="p1s"] { --printer-clr: #10b981; }
-    .card[data-id="x2d"] { --printer-clr: #FF6F00; }
+    .card[data-id="x2d"] { --printer-clr: #F57F17; }
     .card.p-offline {
       --state-clr: #94a3b8;
       --printer-clr: #94a3b8;
@@ -737,7 +737,8 @@
       x2d: 'Bambu Lab X2D'
     };
     const DATA_ATTEMPT_MS = 10000;
-    const STUCK_AT_100_MS = 50000;
+    const STUCK_AT_100_MS = 90000;
+    const DONE_UI_HOLD_MS = 120000;
     const MQTT_STALE_MS = 120000;
 
     const clientId = 'web_dashboard_' + Math.random().toString(16).substr(2, 8);
@@ -754,6 +755,7 @@
     const notifiedDone = {};
     const stuckAt100Since = {};
     const stuckDoneEmitted = {};
+    const doneUiHold = {};
 
     function maybeNotifyPrintDone(id, p) {
       if (p.jobEvent !== 'done') return;
@@ -788,6 +790,31 @@
         out.isPrinting = (out.state === 'PRINTING');
       }
       return out;
+    }
+
+    function applyDoneUiHold(id, raw) {
+      if (!raw) return raw;
+      const pct = Math.min(100, Math.max(0, Number(raw.progress) || 0));
+      if (raw.jobEvent === 'done') {
+        doneUiHold[id] = Date.now();
+        return raw;
+      }
+      if (!doneUiHold[id]) return raw;
+      if (raw.state === 'PRINTING' && pct > 0 && pct < 85) {
+        doneUiHold[id] = 0;
+        return raw;
+      }
+      if (Date.now() - doneUiHold[id] < DONE_UI_HOLD_MS && pct >= 99) {
+        const held = Object.assign({}, raw, {
+          state: 'READY',
+          isPrinting: false,
+          progress: 0
+        });
+        delete held.jobEvent;
+        return held;
+      }
+      if (pct < 85) doneUiHold[id] = 0;
+      return raw;
     }
 
     function applyStuckAt100Fallback(id, raw) {
@@ -981,6 +1008,7 @@
       if (!ui) return;
       raw = normalizePrinterPayload(raw);
       if (BAMBU_IDS.indexOf(id) >= 0) {
+        raw = applyDoneUiHold(id, raw);
         raw = applyStuckAt100Fallback(id, raw);
         raw = sanitizeBambuPayload(id, raw);
       }
