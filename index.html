@@ -796,6 +796,7 @@
 
     function applyDoneUiHold(id, raw) {
       if (!raw) return raw;
+      const prev = lastPrinterData[id];
       const pct = Math.min(100, Math.max(0, Number(raw.progress) || 0));
       if (raw.jobEvent === 'done') {
         doneUiHold[id] = Date.now();
@@ -1088,11 +1089,12 @@
         ? Math.min(100, Math.max(0, Number(p.progress) || 0))
         : (p.online && p.state === 'READY' ? 0 : '—');
 
-      const remaining = jobActive ? (p.remaining || JOB_PLACEHOLDER) : JOB_PLACEHOLDER;
-      const estimated = jobActive ? formatEstimated(p) : JOB_PLACEHOLDER;
-      const layer = jobActive ? (p.layer || JOB_PLACEHOLDER) : JOB_PLACEHOLDER;
       const nozzle = formatTemp(p.nozzle);
       const bed = formatTemp(p.bed);
+      const showMetrics = p.online && (jobActive || p.state === 'READY' || p.state === 'PAUSED');
+      const layer = showMetrics ? (p.layer || JOB_PLACEHOLDER) : JOB_PLACEHOLDER;
+      const remaining = jobActive ? (p.remaining || JOB_PLACEHOLDER) : JOB_PLACEHOLDER;
+      const estimated = jobActive ? formatEstimated(p) : JOB_PLACEHOLDER;
 
       if (p.online && p.state === 'PAUSED' && ui.pausedNumEl) {
         const pausedPct = String(Math.min(100, Math.max(0, Number(p.progress) || 0)));
@@ -1129,7 +1131,12 @@
         setCloudBanner('hidden');
         const data = JSON.parse(message.payloadString);
         PRINTER_IDS.forEach(id => {
-          if (data[id]) applyPrinterData(id, data[id]);
+          if (!data[id]) return;
+          try {
+            applyPrinterData(id, data[id]);
+          } catch (e) {
+            console.error('applyPrinterData', id, e);
+          }
         });
       } catch (e) {
         console.error(e);
