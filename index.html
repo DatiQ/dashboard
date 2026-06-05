@@ -741,10 +741,24 @@
     const DONE_UI_HOLD_MS = 120000;
     const MQTT_STALE_MS = 120000;
 
-    const clientId = 'web_dashboard_' + Math.random().toString(16).substr(2, 8);
-    const mqtt = new Paho.MQTT.Client(cloudBroker, cloudPort, clientId);
+    function getStableWebClientId() {
+      const key = 'mqtt_web_client_id';
+      try {
+        let id = localStorage.getItem(key);
+        if (!id) {
+          id = 'web_dashboard_' + Math.random().toString(16).substr(2, 10);
+          localStorage.setItem(key, id);
+        }
+        return id;
+      } catch (_) {
+        return 'web_dashboard_' + Math.random().toString(16).substr(2, 10);
+      }
+    }
+
+    const mqtt = new Paho.MQTT.Client(cloudBroker, cloudPort, getStableWebClientId());
 
     let mqttConnected = false;
+    let mqttConnecting = false;
     let lastMqttAt = 0;
     let mqttConnectAt = 0;
     let mqttReconnectTimer = null;
@@ -950,6 +964,7 @@
 
     function forceMqttReconnect(bannerText) {
       mqttConnected = false;
+      mqttConnecting = false;
       stopDataAttempts();
       setCloudBanner('reconnecting', bannerText);
       try {
@@ -983,6 +998,7 @@
 
     mqtt.onConnectionLost = () => {
       mqttConnected = false;
+      mqttConnecting = false;
       stopDataAttempts();
       setCloudBanner('reconnecting', 'Зв\'язок з хмарою перервано — перепідключення…');
       scheduleMqttReconnect(2000);
@@ -1144,17 +1160,20 @@
     };
 
     function connectMQTT() {
+      if (mqttConnecting || mqttConnected) return;
       if (mqttReconnectTimer) {
         clearTimeout(mqttReconnectTimer);
         mqttReconnectTimer = null;
       }
+      mqttConnecting = true;
       mqtt.connect({
         useSSL: true,
         userName: cloudUser,
         password: cloudPass,
-        keepAliveInterval: 45,
+        keepAliveInterval: 60,
         timeout: 15,
         onSuccess: () => {
+          mqttConnecting = false;
           mqttConnected = true;
           mqttConnectAt = Date.now();
           lastMqttAt = 0;
@@ -1163,6 +1182,7 @@
           setCloudBanner('connecting', 'Підключено до хмари — очікуємо дані…');
         },
         onFailure: () => {
+          mqttConnecting = false;
           mqttConnected = false;
           stopDataAttempts();
           setCloudBanner('failed', 'Не вдалося підключитись до хмари — повтор через 2 с…');
@@ -1171,8 +1191,22 @@
       });
     }
 
+    window.addEventListener('pagehide', () => {
+      mqttConnecting = false;
+      mqttConnected = false;
+      try { mqtt.disconnect(); } catch (_) { /* noop */ }
+    });
+
+    const mqttDisabled = /(?:^|[?&])no_mqtt=1(?:&|$)/.test(location.search)
+      || location.hash === '#no_mqtt';
+
     initCardUi();
-    connectMQTT();
+    if (mqttDisabled) {
+      setCloudBanner('hidden');
+      console.info('[MQTT] no_mqtt — підключення вимкнено (?no_mqtt=1 або #no_mqtt)');
+    } else {
+      connectMQTT();
+    }
   </script>
 </body>
 </html>
