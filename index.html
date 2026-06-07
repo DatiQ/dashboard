@@ -893,6 +893,14 @@
         return out;
       }
 
+      if (printing && raw.layer && prev && prev.layer) {
+        const cur = String(raw.layer).match(/^(\d+)\/(\d+)$/);
+        const old = String(prev.layer).match(/^(\d+)\/(\d+)$/);
+        if (cur && old && Number(cur[2]) === 0 && Number(old[2]) > 0) {
+          out.layer = cur[1] + '/' + old[2];
+        }
+      }
+
       if (id === 'x2d' && raw.online && !raw.isPrinting && raw.state === 'READY' && pct <= 0) {
         out.progress = 0;
       }
