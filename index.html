@@ -769,6 +769,8 @@
     const lastPrinterData = {};
     const cardUi = {};
     const notifiedDone = {};
+    const lastDoneNotifyAt = {};
+    const DONE_NOTIFY_DEBOUNCE_MS = 120000;
     const stuckAt100Since = {};
     const stuckDoneEmitted = {};
     const doneUiHold = {};
@@ -776,7 +778,10 @@
     function maybeNotifyPrintDone(id, p) {
       if (p.jobEvent !== 'done') return;
       if (notifiedDone[id]) return;
+      const now = Date.now();
+      if (lastDoneNotifyAt[id] && now - lastDoneNotifyAt[id] < DONE_NOTIFY_DEBOUNCE_MS) return;
       notifiedDone[id] = true;
+      lastDoneNotifyAt[id] = now;
       if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
       const name = PRINTER_LABELS[id]
         || (cardUi[id] && cardUi[id].printerName ? cardUi[id].printerName.textContent : id.toUpperCase());
@@ -842,7 +847,7 @@
     }
 
     function applyStuckAt100Fallback(id, raw) {
-      if (!raw || raw.jobEvent === 'done') return raw;
+      if (!raw || raw.jobEvent === 'done' || notifiedDone[id] || doneUiHold[id]) return raw;
       const pct = Math.min(100, Math.max(0, Number(raw.progress) || 0));
       const remSec = Number(raw.remSec) || 0;
       const printing = raw.online && raw.state === 'PRINTING' && raw.isPrinting !== false;
