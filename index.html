@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <title>DASHBOARD</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='9' height='9' fill='%230ea5e9' /%3E%3Crect x='13' y='2' width='9' height='9' fill='%2322c55e' /%3E%3Crect x='2' y='13' width='9' height='9' fill='%23eab308' /%3E%3Crect x='13' y='13' width='9' height='9' fill='%2364748b' /%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+  <style>
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      margin: 0;
+      padding: 24px;
+      background: #060607;
+      color: #e8eaed;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+    }
+    .dashboard {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .card {
+      width: 300px;
+      background: #121214;
+      padding: 15px;
+      border-radius: 12px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .card-main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 4px 80px;
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .card-col-pct {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      align-self: stretch;
+    }
+
+    .card-col-pct .card-title {
+      margin-top: auto;
+      padding-top: 8px;
+    }
+
+    .card-rail {
+      width: 4px;
+      align-self: stretch;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .card-rail-track {
+      flex: 1;
+      width: 100%;
+      min-height: 60px;
+      background: #08080a;
+      border-radius: 2px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card-rail-fill {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: calc(100% * var(--progress-num, 0) / 100);
+      max-height: 100%;
+      min-height: 0;
+      background: var(--printer-clr, #64748b);
+      border-radius: 2px;
+      transition: height 0.35s ease;
+    }
+
+    .card-rail-fill.is-full {
+      height: 100%;
+    }
+
+    .card-col-params {
+      min-width: 0;
+    }
+
+    .card-params {
+      margin: 0;
+    }
+
+    .card-params dt {
+      margin: 0 0 0px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.35px;
+      color: #64748b;
+    }
+
+    .card-params dd {
+      margin: 0 0 12px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .card-params dd:last-of-type {
+      margin-bottom: 0;
+    }
+
+    .card-params dd.is-placeholder {
+      color: #64748b;
+      opacity: 0.65;
+    }
+
+    .card-title {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.2;
+      text-align: left;
+      text-transform: uppercase;
+      color: var(--title-clr, var(--printer-clr, #e8eaed));
+    }
+
+    .card[data-id="q2"] { --printer-clr: #00d2ff; }
+    .card[data-id="u1"] { --printer-clr: #f0c028; }
+    .card[data-id="p1s"] { --printer-clr: #10b981; }
+    .card[data-id="x2d"] { --printer-clr: #F57F17; }
+    .card.p-offline {
+      --state-clr: #94a3b8;
+      --printer-clr: #94a3b8;
+      --state-bg: rgba(148, 163, 184, 0.12);
+      background-color: #121214;
+      background-image: linear-gradient(var(--state-bg), var(--state-bg));
+    }
+
+    .card.p-offline .card-rail-track {
+      background: rgba(148, 163, 184, 0.18);
+    }
+
+    .card.p-ready {
+      --state-clr: #a78bfa;
+      --state-bg: rgba(167, 139, 250, 0.14);
+      background-color: #121214;
+      background-image: linear-gradient(var(--state-bg), var(--state-bg));
+    }
+
+    .card.p-paused {
+      --state-clr: #fb923c;
+      --state-bg: rgba(251, 146, 60, 0.14);
+      --title-clr: var(--state-clr);
+      --printer-clr: var(--state-clr);
+      background-color: #121214;
+      background-image: linear-gradient(var(--state-bg), var(--state-bg));
+    }
+
+    .card.p-ready .card-rail-track {
+      background: rgba(167, 139, 250, 0.2);
+    }
+
+    .card.p-paused .card-rail-track {
+      background: rgba(251, 146, 60, 0.2);
+    }
+
+    .card.p-paused .card-rail-fill {
+      background: var(--state-clr);
+    }
+
+    .card-state-standby,
+    .card-state-paused,
+    .card-state-offline {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: stretch;
+      align-self: stretch;
+      width: 100%;
+      min-height: 0;
+      gap: 0;
+    }
+
+    .card.p-ready .card-state-standby {
+      display: flex;
+    }
+
+    .card.p-paused .card-state-paused {
+      display: flex;
+    }
+
+    .card.p-offline .card-state-offline {
+      display: flex;
+    }
+
+    .card.p-ready .card-pct-inner,
+    .card.p-paused .card-pct-inner,
+    .card.p-offline .card-pct-inner {
+      display: none;
+    }
+
+    .card-state-circle {
+      width: 56px;
+      height: 56px;
+      border-radius: 10px;
+      border: none;
+      background: var(--state-bg, rgba(0, 0, 0, 0.25));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--state-clr);
+      flex-shrink: 0;
+    }
+
+    .card-state-icon {
+      width: 28px;
+      height: 28px;
+      fill: currentColor;
+      flex-shrink: 0;
+    }
+
+    .card.p-ready .card-state-circle,
+    .card.p-paused .card-state-circle,
+    .card.p-offline .card-state-circle {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      flex: 1;
+      min-height: 0;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0;
+      box-sizing: border-box;
+      background: transparent;
+    }
+
+    .card.p-ready .card-state-circle .card-state-icon,
+    .card.p-paused .card-state-circle .card-state-icon,
+    .card.p-offline .card-state-circle .card-state-icon {
+      position: static;
+      transform: none;
+      width: 67px;
+      height: 67px;
+      flex-shrink: 0;
+    }
+
+    .card-state-circle .card-state-label {
+      flex-shrink: 0;
+      padding: 0;
+      text-align: center;
+    }
+
+    .card.p-offline .card-state-label {
+      color: var(--state-clr);
+      letter-spacing: 0.14em;
+    }
+
+    .card-state-label {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      line-height: 1;
+      text-align: center;
+    }
+
+    .printer-name {
+      display: none;
+    }
+
+    .card-pct {
+      margin: 0;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 0;
+    }
+
+    .card.p-ready .card-pct,
+    .card.p-paused .card-pct,
+    .card.p-offline .card-pct {
+      align-items: stretch;
+      justify-content: flex-start;
+    }
+
+    .card.p-printing .card-pct {
+      align-items: flex-start;
+      justify-content: flex-start;
+    }
+
+    .card.p-paused .card-pct-corner {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 2;
+      display: flex;
+      align-items: flex-start;
+      gap: 2px;
+      line-height: 1;
+      color: var(--state-clr);
+    }
+
+    .card.p-paused .card-pct-corner .card-pct-paused-num {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+
+    .card.p-paused .card-pct-corner .card-pct-paused-sym {
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1;
+      margin-top: 5px;
+    }
+
+    .card-pct-inner {
+      position: relative;
+      display: inline-block;
+      line-height: 0.9;
+      align-self: flex-start;
+    }
+
+    .card-num {
+      font-size: 80px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 0.9;
+    }
+
+    .card-sym {
+      position: absolute;
+      left: 100%;
+      top: 0;
+      margin-left: 2px;
+      margin-top: 3px;
+      font-size: 32px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    /* Surface (3:2, Windows, HiDPI) — +15% */
+    body.device-surface {
+      padding: 28px;
+    }
+
+    body.device-surface .dashboard {
+      gap: 28px;
+    }
+
+    body.device-surface .card {
+      width: 330px;
+      padding: 17px;
+      border-radius: 14px;
+      gap: 14px;
+    }
+
+    body.device-surface .card-main {
+      grid-template-columns: minmax(0, 1fr) 5px 92px;
+      gap: 14px;
+    }
+
+    body.device-surface .card-rail {
+      width: 5px;
+    }
+
+    body.device-surface .card-rail-track {
+      min-height: 69px;
+    }
+
+    body.device-surface .card-params dt {
+      font-size: 12px;
+    }
+
+    body.device-surface .card-params dd {
+      font-size: 16px;
+      margin-bottom: 14px;
+    }
+
+    body.device-surface .card-params dd:last-of-type {
+      margin-bottom: 0;
+    }
+
+    body.device-surface .card-col-pct .card-title {
+      font-size: 16px;
+      padding-top: 9px;
+    }
+
+    body.device-surface .card.p-ready .card-state-circle .card-state-icon,
+    body.device-surface .card.p-paused .card-state-circle .card-state-icon,
+    body.device-surface .card.p-offline .card-state-circle .card-state-icon {
+      width: 77px;
+      height: 77px;
+    }
+
+    body.device-surface .card-state-label {
+      font-size: 11px;
+    }
+
+    body.device-surface .card.p-paused .card-pct-corner {
+      top: 12px;
+      left: 12px;
+    }
+
+    body.device-surface .card.p-paused .card-pct-corner .card-pct-paused-num {
+      font-size: 37px;
+    }
+
+    body.device-surface .card.p-paused .card-pct-corner .card-pct-paused-sym {
+      font-size: 14px;
+      margin-top: 5px;
+    }
+
+    body.device-surface .card-num {
+      font-size: 92px;
+    }
+
+    body.device-surface .card-sym {
+      font-size: 37px;
+      margin-left: 2px;
+      margin-top: 4px;
+    }
+
+    .cloud-banner {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 200;
+      padding: 10px 20px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      background: rgba(234, 179, 8, 0.14);
+      color: #fbbf24;
+      border-bottom: 1px solid rgba(234, 179, 8, 0.35);
+      box-sizing: border-box;
+    }
+
+    .cloud-banner.is-error {
+      background: rgba(239, 68, 68, 0.12);
+      color: #f87171;
+      border-bottom-color: rgba(239, 68, 68, 0.35);
+    }
+
+    body.has-cloud-banner {
+      padding-top: 52px;
+    }
+
+    body.cloud-data-stale .dashboard {
+      opacity: 0.88;
+    }
+
+  </style>
+</head>
+<body>
+
+  <div id="cloud-banner" class="cloud-banner" hidden role="status" aria-live="polite">
+    <span id="cloud-banner-text"></span>
+  </div>
+
+  <div class="dashboard">
+    <article id="card_q2" class="card" data-id="q2">
+      <h2 class="printer-name">QIDI Q2</h2>
+      <div class="card-main">
+        <div class="card-col-pct">
+          <div class="card-pct">
+            <span class="card-pct-inner">
+              <span class="card-num" data-field="progress-num">—</span>
+              <span class="card-sym">%</span>
+            </span>
+            <div class="card-state-standby" aria-label="Standby">
+              <div class="card-state-circle">
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+                <span class="card-state-label">STANDBY</span>
+              </div>
+            </div>
+            <div class="card-state-paused" aria-label="Paused">
+              <div class="card-state-circle">
+                <div class="card-pct-corner">
+                  <span class="card-pct-paused-num" data-field="progress-paused">0</span>
+                  <span class="card-pct-paused-sym">%</span>
+                </div>
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                </svg>
+                <span class="card-state-label">PAUSE</span>
+              </div>
+            </div>
+            <div class="card-state-offline" aria-label="Offline">
+              <div class="card-state-circle">
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                </svg>
+                <span class="card-state-label">OFFLINE</span>
+              </div>
+            </div>
+          </div>
+          <div class="card-title">QIDI Q2</div>
+        </div>
+        <div class="card-rail" aria-hidden="true">
+          <div class="card-rail-track">
+            <div class="card-rail-fill"></div>
+          </div>
+        </div>
+        <div class="card-col-params">
+          <dl class="card-params">
+            <dt>Remaining</dt><dd data-field="remaining">—</dd>
+            <dt>Estimated</dt><dd data-field="estimated">—</dd>
+            <dt>Layer</dt><dd data-field="layer">—</dd>
+            <dt>Nozzle</dt><dd data-field="nozzle">—</dd>
+            <dt>Bed</dt><dd data-field="bed">—</dd>
+          </dl>
+        </div>
+      </div>
+    </article>
+
+    <article id="card_u1" class="card" data-id="u1">
+      <h2 class="printer-name">Snapmaker U1</h2>
+      <div class="card-main">
+        <div class="card-col-pct">
+          <div class="card-pct">
+            <span class="card-pct-inner">
+              <span class="card-num" data-field="progress-num">—</span>
+              <span class="card-sym">%</span>
+            </span>
+            <div class="card-state-standby" aria-label="Standby">
+              <div class="card-state-circle">
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+                <span class="card-state-label">STANDBY</span>
+              </div>
+            </div>
+            <div class="card-state-paused" aria-label="Paused">
+              <div class="card-state-circle">
+                <div class="card-pct-corner">
+                  <span class="card-pct-paused-num" data-field="progress-paused">0</span>
+                  <span class="card-pct-paused-sym">%</span>
+                </div>
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                </svg>
+                <span class="card-state-label">PAUSE</span>
+              </div>
+            </div>
+            <div class="card-state-offline" aria-label="Offline">
+              <div class="card-state-circle">
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                </svg>
+                <span class="card-state-label">OFFLINE</span>
+              </div>
+            </div>
+          </div>
+          <div class="card-title">Snapmaker U1</div>
+        </div>
+        <div class="card-rail" aria-hidden="true">
+          <div class="card-rail-track">
+            <div class="card-rail-fill"></div>
+          </div>
+        </div>
+        <div class="card-col-params">
+          <dl class="card-params">
+            <dt>Remaining</dt><dd data-field="remaining">—</dd>
+            <dt>Estimated</dt><dd data-field="estimated">—</dd>
+            <dt>Layer</dt><dd data-field="layer">—</dd>
+            <dt>Nozzle</dt><dd data-field="nozzle">—</dd>
+            <dt>Bed</dt><dd data-field="bed">—</dd>
+          </dl>
+        </div>
+      </div>
+    </article>
+
+    <article id="card_p1s" class="card" data-id="p1s">
+      <h2 class="printer-name">Bambu Lab P1S</h2>
+      <div class="card-main">
+        <div class="card-col-pct">
+          <div class="card-pct">
+            <span class="card-pct-inner">
+              <span class="card-num" data-field="progress-num">—</span>
+              <span class="card-sym">%</span>
+            </span>
+            <div class="card-state-standby" aria-label="Standby">
+              <div class="card-state-circle">
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+                <span class="card-state-label">STANDBY</span>
+              </div>
+            </div>
+            <div class="card-state-paused" aria-label="Paused">
+              <div class="card-state-circle">
+                <div class="card-pct-corner">
+                  <span class="card-pct-paused-num" data-field="progress-paused">0</span>
+                  <span class="card-pct-paused-sym">%</span>
+                </div>
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                </svg>
+                <span class="card-state-label">PAUSE</span>
+              </div>
+            </div>
+            <div class="card-state-offline" aria-label="Offline">
+              <div class="card-state-circle">
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                </svg>
+                <span class="card-state-label">OFFLINE</span>
+              </div>
+            </div>
+          </div>
+          <div class="card-title">Bambu Lab P1S</div>
+        </div>
+        <div class="card-rail" aria-hidden="true">
+          <div class="card-rail-track">
+            <div class="card-rail-fill"></div>
+          </div>
+        </div>
+        <div class="card-col-params">
+          <dl class="card-params">
+            <dt>Remaining</dt><dd data-field="remaining">—</dd>
+            <dt>Estimated</dt><dd data-field="estimated">—</dd>
+            <dt>Layer</dt><dd data-field="layer">—</dd>
+            <dt>Nozzle</dt><dd data-field="nozzle">—</dd>
+            <dt>Bed</dt><dd data-field="bed">—</dd>
+          </dl>
+        </div>
+      </div>
+    </article>
+
+    <article id="card_x2d" class="card" data-id="x2d">
+      <h2 class="printer-name">Bambu Lab X2D</h2>
+      <div class="card-main">
+        <div class="card-col-pct">
+          <div class="card-pct">
+            <span class="card-pct-inner">
+              <span class="card-num" data-field="progress-num">—</span>
+              <span class="card-sym">%</span>
+            </span>
+            <div class="card-state-standby" aria-label="Standby">
+              <div class="card-state-circle">
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+                <span class="card-state-label">STANDBY</span>
+              </div>
+            </div>
+            <div class="card-state-paused" aria-label="Paused">
+              <div class="card-state-circle">
+                <div class="card-pct-corner">
+                  <span class="card-pct-paused-num" data-field="progress-paused">0</span>
+                  <span class="card-pct-paused-sym">%</span>
+                </div>
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                </svg>
+                <span class="card-state-label">PAUSE</span>
+              </div>
+            </div>
+            <div class="card-state-offline" aria-label="Offline">
+              <div class="card-state-circle">
+                <svg class="card-state-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                </svg>
+                <span class="card-state-label">OFFLINE</span>
+              </div>
+            </div>
+          </div>
+          <div class="card-title">Bambu Lab X2D</div>
+        </div>
+        <div class="card-rail" aria-hidden="true">
+          <div class="card-rail-track">
+            <div class="card-rail-fill"></div>
+          </div>
+        </div>
+        <div class="card-col-params">
+          <dl class="card-params">
+            <dt>Remaining</dt><dd data-field="remaining">—</dd>
+            <dt>Estimated</dt><dd data-field="estimated">—</dd>
+            <dt>Layer</dt><dd data-field="layer">—</dd>
+            <dt>Nozzle</dt><dd data-field="nozzle">—</dd>
+            <dt>Bed</dt><dd data-field="bed">—</dd>
+          </dl>
+        </div>
+      </div>
+    </article>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const isWindows = /Win/i.test(navigator.platform) || /Windows/i.test(navigator.userAgent);
+      const screenRatio = window.screen.width / window.screen.height;
+      const isAspectRatio32 = Math.abs(screenRatio - 1.5) < 0.05;
+      const isHighDPI = window.devicePixelRatio >= 1.5;
+      if (isWindows && isAspectRatio32 && isHighDPI) {
+        document.body.classList.add('device-surface');
+      }
+    });
+
+    const JOB_PLACEHOLDER = '--:--';
+
+    const cloudBroker = 'm0722111.ala.eu-central-1.emqxsl.com';
+    const cloudPort = 8084;
+    const cloudUser = 'DatiX';
+    const cloudPass = 'fdfkjy';
+    const cloudTopic = 'my_printers/data';
+
+    const BAMBU_IDS = ['p1s', 'x2d'];
+    const PRINTER_IDS = ['q2', 'u1', 'p1s', 'x2d'];
+    const PRINTER_LABELS = {
+      q2: 'QIDI Q2',
+      u1: 'Snapmaker U1',
+      p1s: 'Bambu Lab P1S',
+      x2d: 'Bambu Lab X2D'
+    };
+    const DATA_ATTEMPT_MS = 10000;
+    const STUCK_AT_100_MS = 90000;
+    const DONE_UI_HOLD_MS = 120000;
+    const MQTT_STALE_MS = 120000;
+
+    function getStableWebClientId() {
+      const key = 'mqtt_web_client_id';
+      try {
+        let id = localStorage.getItem(key);
+        if (!id) {
+          id = 'web_dashboard_' + Math.random().toString(16).substr(2, 10);
+          localStorage.setItem(key, id);
+        }
+        return id;
+      } catch (_) {
+        return 'web_dashboard_' + Math.random().toString(16).substr(2, 10);
+      }
+    }
+
+    const mqtt = new Paho.MQTT.Client(cloudBroker, cloudPort, getStableWebClientId());
+
+    let mqttConnected = false;
+    let mqttConnecting = false;
+    let lastMqttAt = 0;
+    let mqttConnectAt = 0;
+    let mqttReconnectTimer = null;
+    let cloudBannerMode = 'hidden';
+    let dataAttemptTimer = null;
+    const cloudBannerEl = document.getElementById('cloud-banner');
+    const cloudBannerTextEl = document.getElementById('cloud-banner-text');
+    const lastPrinterData = {};
+    const cardUi = {};
+    const notifiedDone = {};
+    const lastDoneNotifyAt = {};
+    // 10-minute debounce: even if the ESP sends jobEvent:"done" twice
+    // (e.g. the retained message + the non-retained event arrive together),
+    // the browser will only show one notification per printer per 10 minutes.
+    const DONE_NOTIFY_DEBOUNCE_MS = 600000;
+    const DONE_NOTIFY_LS_KEY = 'printer_done_notify_at_v2';
+    const MQTT_BOOTSTRAP_MS = 12000;
+    let mqttBootstrapUntil = 0;
+    const stuckAt100Since = {};
+    const stuckDoneEmitted = {};
+    const doneUiHold = {};
+
+    function loadDoneNotifyTimes() {
+      try {
+        const raw = localStorage.getItem(DONE_NOTIFY_LS_KEY);
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        const now = Date.now();
+        PRINTER_IDS.forEach(id => {
+          if (saved[id] && now - saved[id] < DONE_NOTIFY_DEBOUNCE_MS) {
+            lastDoneNotifyAt[id] = saved[id];
+            notifiedDone[id] = true;
+          }
+        });
+      } catch (_) { /* ignore */ }
+    }
+
+    function saveDoneNotifyTime(id, ts) {
+      lastDoneNotifyAt[id] = ts;
+      try {
+        localStorage.setItem(DONE_NOTIFY_LS_KEY, JSON.stringify(lastDoneNotifyAt));
+      } catch (_) { /* ignore */ }
+    }
+
+    function maybeNotifyPrintDone(id, p) {
+      if (p.jobEvent !== 'done') return;
+      if (Date.now() < mqttBootstrapUntil) return;
+      if (notifiedDone[id]) return;
+      const now = Date.now();
+      if (lastDoneNotifyAt[id] && now - lastDoneNotifyAt[id] < DONE_NOTIFY_DEBOUNCE_MS) return;
+      notifiedDone[id] = true;
+      saveDoneNotifyTime(id, now);
+      if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+      const name = PRINTER_LABELS[id]
+        || (cardUi[id] && cardUi[id].printerName ? cardUi[id].printerName.textContent : id.toUpperCase());
+      new Notification('Друк завершено', { body: name });
+    }
+
+    function normalizePrinterPayload(raw) {
+      if (!raw) return raw;
+      const out = Object.assign({}, raw);
+      if (!out.online) return out;
+      if (out.jobEvent === 'done') {
+        out.state = 'READY';
+        out.isPrinting = false;
+        out.progress = 0;
+        return out;
+      }
+      const pct = Math.min(100, Math.max(0, Number(out.progress) || 0));
+      if (out.isPrinting === true || out.isPrinting === 1) {
+        if (out.state === 'READY' || out.state === 'OFFLINE') out.state = 'PRINTING';
+      } else if (out.state === 'READY' && pct > 0 && pct < 99) {
+        out.state = 'PRINTING';
+      } else if (out.state === 'READY' && pct >= 99) {
+        out.progress = 0;
+        out.isPrinting = false;
+      }
+      if (out.state === 'PRINTING' || out.state === 'PAUSED') {
+        out.isPrinting = (out.state === 'PRINTING');
+      }
+      return out;
+    }
+
+    function applyDoneUiHold(id, raw) {
+      if (!raw) return raw;
+      const prev = lastPrinterData[id];
+      const pct = Math.min(100, Math.max(0, Number(raw.progress) || 0));
+      if (raw.jobEvent === 'done') {
+        doneUiHold[id] = Date.now();
+        return raw;
+      }
+      if (!doneUiHold[id]) {
+        if (raw.state === 'READY' && !raw.isPrinting && pct <= 0 && prev
+            && Number(prev.progress) >= 99) {
+          doneUiHold[id] = Date.now();
+        }
+        return raw;
+      }
+      if (raw.state === 'PRINTING' || raw.state === 'PAUSED'
+          || raw.isPrinting === true || raw.isPrinting === 1) {
+        doneUiHold[id] = 0;
+        return raw;
+      }
+      if (Date.now() - doneUiHold[id] < DONE_UI_HOLD_MS && pct >= 99) {
+        const held = Object.assign({}, raw, {
+          state: 'READY',
+          isPrinting: false,
+          progress: 0
+        });
+        delete held.jobEvent;
+        return held;
+      }
+      if (pct < 85) doneUiHold[id] = 0;
+      return raw;
+    }
+
+    function applyStuckAt100Fallback(id, raw) {
+      if (!raw || raw.jobEvent === 'done' || notifiedDone[id] || doneUiHold[id]) return raw;
+      const pct = Math.min(100, Math.max(0, Number(raw.progress) || 0));
+      const remSec = Number(raw.remSec) || 0;
+      const printing = raw.online && raw.state === 'PRINTING' && raw.isPrinting !== false;
+      if (printing && pct >= 99) {
+        if (!stuckAt100Since[id]) stuckAt100Since[id] = Date.now();
+      } else {
+        stuckAt100Since[id] = 0;
+        stuckDoneEmitted[id] = false;
+        return raw;
+      }
+      if (Date.now() - stuckAt100Since[id] < STUCK_AT_100_MS) return raw;
+      if (stuckDoneEmitted[id]) return raw;
+      stuckDoneEmitted[id] = true;
+      return Object.assign({}, raw, {
+        jobEvent: 'done',
+        state: 'READY',
+        isPrinting: false,
+        progress: 0,
+        remSec: 0,
+        remaining: '--m',
+        layer: '0/0'
+      });
+    }
+
+    function sanitizeBambuPayload(id, raw) {
+      if (!raw || raw.state === undefined) return raw;
+      const prev = lastPrinterData[id];
+      const out = Object.assign({}, raw);
+      const pct = Math.min(100, Math.max(0, Number(raw.progress) || 0));
+      const remSec = Number(raw.remSec) || 0;
+
+      if (raw.jobEvent === 'done') {
+        return out;
+      }
+
+      if (raw.online && raw.state === 'READY' && raw.isPrinting && (pct > 0 || remSec > 0)) {
+        out.state = 'PRINTING';
+      }
+
+      const printing = out.online && out.state === 'PRINTING';
+
+      if (printing && pct >= 99 && remSec <= 0 && prev && prev.progress > 0 && prev.progress < 85
+          && raw.isPrinting !== false && raw.jobEvent !== 'done') {
+        out.progress = prev.progress;
+        out.remSec = prev.remSec;
+        out.remaining = prev.remaining;
+        out.layer = prev.layer;
+        return out;
+      }
+
+      if (printing && raw.layer && prev && prev.layer) {
+        const cur = String(raw.layer).match(/^(\d+)\/(\d+)$/);
+        const old = String(prev.layer).match(/^(\d+)\/(\d+)$/);
+        if (cur && old && Number(cur[2]) === 0 && Number(old[2]) > 0) {
+          out.layer = cur[1] + '/' + old[2];
+        }
+      }
+
+      if (id === 'x2d' && raw.online && !raw.isPrinting && raw.state === 'READY' && pct <= 0) {
+        out.progress = 0;
+      }
+
+      if (raw.online && !raw.isPrinting && raw.state === 'READY' && pct >= 99) {
+        out.progress = 0;
+        out.state = 'READY';
+      }
+
+      return out;
+    }
+
+    function initCardUi() {
+      PRINTER_IDS.forEach(id => {
+        const card = document.getElementById('card_' + id);
+        if (!card) return;
+        cardUi[id] = {
+          card,
+          railFill: card.querySelector('.card-rail-fill'),
+          numEl: card.querySelector('[data-field="progress-num"]'),
+          symEl: card.querySelector('.card-sym'),
+          pausedNumEl: card.querySelector('[data-field="progress-paused"]'),
+          titleEl: card.querySelector('.card-title'),
+          printerName: card.querySelector('.printer-name'),
+          remaining: card.querySelector('[data-field="remaining"]'),
+          estimated: card.querySelector('[data-field="estimated"]'),
+          layer: card.querySelector('[data-field="layer"]'),
+          nozzle: card.querySelector('[data-field="nozzle"]'),
+          bed: card.querySelector('[data-field="bed"]')
+        };
+      });
+    }
+
+    function setParamField(el, value, isPlaceholder) {
+      if (!el || el.textContent === value) return;
+      el.textContent = value;
+      el.classList.toggle('is-placeholder', isPlaceholder);
+    }
+
+    function stopDataAttempts() {
+      if (dataAttemptTimer) {
+        clearInterval(dataAttemptTimer);
+        dataAttemptTimer = null;
+      }
+    }
+
+    function setCloudBanner(mode, text) {
+      cloudBannerMode = mode;
+      if (!cloudBannerEl || !cloudBannerTextEl) return;
+      if (mode === 'hidden' || !text) {
+        cloudBannerEl.hidden = true;
+        document.body.classList.remove('has-cloud-banner', 'cloud-data-stale');
+        return;
+      }
+      cloudBannerTextEl.textContent = text;
+      cloudBannerEl.hidden = false;
+      cloudBannerEl.classList.toggle('is-error', mode === 'stale' || mode === 'failed');
+      document.body.classList.add('has-cloud-banner');
+      document.body.classList.toggle('cloud-data-stale', mode === 'stale');
+    }
+
+    function scheduleMqttReconnect(delayMs) {
+      if (mqttReconnectTimer) clearTimeout(mqttReconnectTimer);
+      mqttReconnectTimer = setTimeout(() => {
+        mqttReconnectTimer = null;
+        connectMQTT();
+      }, delayMs);
+    }
+
+    function forceMqttReconnect(bannerText) {
+      mqttConnected = false;
+      mqttConnecting = false;
+      stopDataAttempts();
+      setCloudBanner('reconnecting', bannerText);
+      try {
+        mqtt.disconnect();
+      } catch (_) { /* already disconnected */ }
+      scheduleMqttReconnect(1000);
+    }
+
+    function checkMqttStale() {
+      if (!mqttConnected) return;
+      const now = Date.now();
+      if (!lastMqttAt) {
+        if (mqttConnectAt && now - mqttConnectAt > 90000) {
+          forceMqttReconnect('Дані з хмари не надходять — перепідключення…');
+        }
+        return;
+      }
+      if (now - lastMqttAt <= MQTT_STALE_MS) {
+        if (cloudBannerMode === 'stale') setCloudBanner('hidden');
+        return;
+      }
+      forceMqttReconnect(
+        'Немає свіжих даних з хмари (понад 2 хв) — перепідключення…'
+      );
+    }
+
+    function startDataAttempts() {
+      stopDataAttempts();
+      dataAttemptTimer = setInterval(checkMqttStale, DATA_ATTEMPT_MS);
+    }
+
+    mqtt.onConnectionLost = () => {
+      mqttConnected = false;
+      mqttConnecting = false;
+      stopDataAttempts();
+      setCloudBanner('reconnecting', 'Зв\'язок з хмарою перервано — перепідключення…');
+      scheduleMqttReconnect(2000);
+    };
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!mqttConnected) {
+        scheduleMqttReconnect(300);
+        return;
+      }
+      if (!lastMqttAt || Date.now() - lastMqttAt > 45000) {
+        forceMqttReconnect('Оновлення зв\'язку з хмарою…');
+      }
+    });
+
+    function formatTemp(value) {
+      const temp = Number(value);
+      if (!Number.isFinite(temp) || temp <= 0) return '--';
+      return Math.round(temp) + '°';
+    }
+
+    function formatEstimated(p) {
+      if (p.remSec > 0) {
+        const d = new Date(Date.now() + p.remSec * 1000);
+        return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+      }
+      return JOB_PLACEHOLDER;
+    }
+
+    function getContentMode(p) {
+      if (!p.online || (p.online && (p.state === 'PRINTING' || p.state === 'READY'))) return 'print';
+      if (p.state === 'PAUSED') return 'idle-paused';
+      return 'idle-standby';
+    }
+
+    function isJobActive(p) {
+      if (!p.online) return false;
+      if (p.jobEvent === 'done') return false;
+      if (p.state === 'READY' && !p.isPrinting) return false;
+      if (p.state === 'PRINTING' || p.state === 'PAUSED') return true;
+      if (p.isPrinting === true || p.isPrinting === 1) return true;
+      return false;
+    }
+
+    function getFillProgress(p) {
+      if (!p.online) return 0;
+      if (isJobActive(p)) {
+        return Math.min(100, Math.max(0, Number(p.progress) || 0));
+      }
+      return 0;
+    }
+
+    function getStateClass(p) {
+      if (!p.online) return 'p-offline';
+      if (p.state === 'PAUSED') return 'p-paused';
+      if (isJobActive(p)) return 'p-printing';
+      if (p.state === 'READY') return 'p-ready';
+      return 'p-offline';
+    }
+
+    function setPrinterOffline(id) {
+      const ui = cardUi[id];
+      if (!ui) return;
+      const p = Object.assign({}, lastPrinterData[id] || {}, { online: false, state: 'OFFLINE' });
+      const cls = 'card p-offline';
+      if (ui.card.className !== cls) ui.card.className = cls;
+      updateCard(id, p);
+    }
+
+    function applyPrinterData(id, raw) {
+      const ui = cardUi[id];
+      if (!ui) return;
+      raw = normalizePrinterPayload(raw);
+      if (BAMBU_IDS.indexOf(id) >= 0) {
+        raw = applyDoneUiHold(id, raw);
+        raw = applyStuckAt100Fallback(id, raw);
+        raw = sanitizeBambuPayload(id, raw);
+      }
+      lastPrinterData[id] = raw;
+      const p = raw;
+      // Reset done-guard only when we see solid printing progress.
+      // Threshold 10% avoids false resets during Bambu's warm-up phase
+      // where progress briefly appears as 1-5% on the FIRST message.
+      if (p.state === 'PRINTING' && Number(p.progress) >= 10 && Number(p.progress) < 90) {
+        notifiedDone[id] = false;
+      }
+      maybeNotifyPrintDone(id, p);
+      const cls = 'card ' + getStateClass(p);
+      if (ui.card.className !== cls) ui.card.className = cls;
+      updateCard(id, p);
+    }
+
+    function updateCard(id, p) {
+      const ui = cardUi[id];
+      if (!ui) return;
+      const card = ui.card;
+      const fillProgress = getFillProgress(p);
+      const fillStr = String(fillProgress);
+      if (card.style.getPropertyValue('--progress-num') !== fillStr) {
+        card.style.setProperty('--progress-num', fillProgress);
+      }
+      if (ui.railFill) ui.railFill.classList.toggle('is-full', fillProgress >= 100);
+
+      const jobActive = isJobActive(p);
+      const progress = jobActive
+        ? Math.min(100, Math.max(0, Number(p.progress) || 0))
+        : (p.online && p.state === 'READY' ? 0 : '—');
+
+      const nozzle = formatTemp(p.nozzle);
+      const bed = formatTemp(p.bed);
+      const showMetrics = p.online && (jobActive || p.state === 'READY' || p.state === 'PAUSED');
+      const layer = showMetrics ? (p.layer || JOB_PLACEHOLDER) : JOB_PLACEHOLDER;
+      const remaining = jobActive ? (p.remaining || JOB_PLACEHOLDER) : JOB_PLACEHOLDER;
+      const estimated = jobActive ? formatEstimated(p) : JOB_PLACEHOLDER;
+
+      if (p.online && p.state === 'PAUSED' && ui.pausedNumEl) {
+        const pausedPct = String(Math.min(100, Math.max(0, Number(p.progress) || 0)));
+        if (ui.pausedNumEl.textContent !== pausedPct) ui.pausedNumEl.textContent = pausedPct;
+      }
+
+      if (!(p.online && (p.state === 'READY' || p.state === 'PAUSED'))) {
+        const displayNum = p.online ? (jobActive ? String(progress) : '—') : '—';
+        if (ui.numEl && ui.numEl.textContent !== displayNum) ui.numEl.textContent = displayNum;
+        if (ui.symEl) ui.symEl.hidden = !p.online;
+      }
+
+      const ph = (v) => v === JOB_PLACEHOLDER || v === '--';
+      setParamField(ui.remaining, remaining, ph(remaining));
+      setParamField(ui.estimated, estimated, ph(estimated));
+      setParamField(ui.layer, layer, ph(layer));
+      setParamField(ui.nozzle, nozzle, ph(nozzle));
+      setParamField(ui.bed, bed, ph(bed));
+
+      const mode = getContentMode(p);
+      if (card.dataset.mode !== mode) card.dataset.mode = mode;
+      const jobFlag = jobActive ? '1' : '0';
+      if (card.dataset.jobActive !== jobFlag) card.dataset.jobActive = jobFlag;
+
+      const orderMap = { q2: 1, u1: 2, p1s: 3, x2d: 4 };
+      const baseOrder = orderMap[id] || 5;
+      const order = (p.online && p.state === 'PRINTING') ? baseOrder : (baseOrder + 5);
+      if (card.style.order !== String(order)) card.style.order = order;
+    }
+
+    mqtt.onMessageArrived = (message) => {
+      try {
+        lastMqttAt = Date.now();
+        setCloudBanner('hidden');
+        const data = JSON.parse(message.payloadString);
+
+        // The ESP32 publishes two messages when a job finishes:
+        //   1. non-retained: has jobEvent:"done"
+        //   2. retained:     state without jobEvent (clean state)
+        // On reconnect the broker replays the retained message,
+        // so jobEvent:"done" should never appear in the retained copy.
+        // But as an extra safety net we de-duplicate here too.
+
+        PRINTER_IDS.forEach(id => {
+          if (!data[id]) return;
+          try {
+            applyPrinterData(id, data[id]);
+          } catch (e) {
+            console.error('applyPrinterData', id, e);
+          }
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    function connectMQTT() {
+      if (mqttConnecting || mqttConnected) return;
+      if (mqttReconnectTimer) {
+        clearTimeout(mqttReconnectTimer);
+        mqttReconnectTimer = null;
+      }
+      mqttConnecting = true;
+      mqtt.connect({
+        useSSL: true,
+        userName: cloudUser,
+        password: cloudPass,
+        keepAliveInterval: 60,
+        timeout: 15,
+        onSuccess: () => {
+          mqttConnecting = false;
+          mqttConnected = true;
+          mqttConnectAt = Date.now();
+          mqttBootstrapUntil = Date.now() + MQTT_BOOTSTRAP_MS;
+          lastMqttAt = 0;
+          mqtt.subscribe(cloudTopic, { qos: 0 });
+          startDataAttempts();
+          setCloudBanner('connecting', 'Підключено до хмари — очікуємо дані…');
+        },
+        onFailure: () => {
+          mqttConnecting = false;
+          mqttConnected = false;
+          stopDataAttempts();
+          setCloudBanner('failed', 'Не вдалося підключитись до хмари — повтор через 2 с…');
+          scheduleMqttReconnect(2000);
+        }
+      });
+    }
+
+    window.addEventListener('pagehide', () => {
+      mqttConnecting = false;
+      mqttConnected = false;
+      try { mqtt.disconnect(); } catch (_) { /* noop */ }
+    });
+
+    const mqttDisabled = /(?:^|[?&])no_mqtt=1(?:&|$)/.test(location.search)
+      || location.hash === '#no_mqtt';
+
+    initCardUi();
+    loadDoneNotifyTimes();
+    if (mqttDisabled) {
+      setCloudBanner('hidden');
+      console.info('[MQTT] no_mqtt — підключення вимкнено (?no_mqtt=1 або #no_mqtt)');
+    } else {
+      connectMQTT();
+    }
+  </script>
+</body>
+</html>
