@@ -771,17 +771,43 @@
     const notifiedDone = {};
     const lastDoneNotifyAt = {};
     const DONE_NOTIFY_DEBOUNCE_MS = 120000;
+    const DONE_NOTIFY_LS_KEY = 'printer_done_notify_at';
+    const MQTT_BOOTSTRAP_MS = 12000;
+    let mqttBootstrapUntil = 0;
     const stuckAt100Since = {};
     const stuckDoneEmitted = {};
     const doneUiHold = {};
 
+    function loadDoneNotifyTimes() {
+      try {
+        const raw = localStorage.getItem(DONE_NOTIFY_LS_KEY);
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        const now = Date.now();
+        PRINTER_IDS.forEach(id => {
+          if (saved[id] && now - saved[id] < DONE_NOTIFY_DEBOUNCE_MS) {
+            lastDoneNotifyAt[id] = saved[id];
+            notifiedDone[id] = true;
+          }
+        });
+      } catch (_) { /* ignore */ }
+    }
+
+    function saveDoneNotifyTime(id, ts) {
+      lastDoneNotifyAt[id] = ts;
+      try {
+        localStorage.setItem(DONE_NOTIFY_LS_KEY, JSON.stringify(lastDoneNotifyAt));
+      } catch (_) { /* ignore */ }
+    }
+
     function maybeNotifyPrintDone(id, p) {
       if (p.jobEvent !== 'done') return;
+      if (Date.now() < mqttBootstrapUntil) return;
       if (notifiedDone[id]) return;
       const now = Date.now();
       if (lastDoneNotifyAt[id] && now - lastDoneNotifyAt[id] < DONE_NOTIFY_DEBOUNCE_MS) return;
       notifiedDone[id] = true;
-      lastDoneNotifyAt[id] = now;
+      saveDoneNotifyTime(id, now);
       if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
       const name = PRINTER_LABELS[id]
         || (cardUi[id] && cardUi[id].printerName ? cardUi[id].printerName.textContent : id.toUpperCase());
@@ -1189,6 +1215,7 @@
           mqttConnecting = false;
           mqttConnected = true;
           mqttConnectAt = Date.now();
+          mqttBootstrapUntil = Date.now() + MQTT_BOOTSTRAP_MS;
           lastMqttAt = 0;
           mqtt.subscribe(cloudTopic, { qos: 0 });
           startDataAttempts();
@@ -1214,6 +1241,7 @@
       || location.hash === '#no_mqtt';
 
     initCardUi();
+    loadDoneNotifyTimes();
     if (mqttDisabled) {
       setCloudBanner('hidden');
       console.info('[MQTT] no_mqtt — підключення вимкнено (?no_mqtt=1 або #no_mqtt)');
